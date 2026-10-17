@@ -105,7 +105,7 @@ async function main(): Promise<void> {
   )
 
   const noMatch = await client.get(
-    `/nfts?categories=${encodeURIComponent('Arte digital')}&networks=solana`,
+    `/nfts?categories=${encodeURIComponent('Fotografia')}&networks=ethereum`,
   )
   check(
     noMatch.status === 200 &&
@@ -156,6 +156,38 @@ async function main(): Promise<void> {
   check(badPage.status === 422, 'page=0 -> 422')
   const badSort = await client.get('/nfts?sort=inexistente')
   check(badSort.status === 422, 'sort inválido -> 422')
+
+  const detail = await client.get('/nfts/teal-motion-062')
+  check(
+    detail.status === 200 &&
+      detail.data.name === 'Teal Motion #062' &&
+      detail.data.edition?.current === 13 &&
+      detail.data.edition?.total === 50 &&
+      detail.data.available === 3 &&
+      detail.data.rarity === 'COMUM' &&
+      detail.data.reviews?.average === 3.5 &&
+      detail.data.reviews?.count === 2 &&
+      detail.data.images?.length === 4,
+    'detalhe: teal-motion-062 com edição 13/50, estoque 3, raridade e reviews',
+  )
+
+  const missing = await client.get('/nfts/este-nao-existe')
+  check(
+    missing.status === 404 && missing.data.error?.code === 'NOT_FOUND',
+    'detalhe inexistente -> 404 com envelope NOT_FOUND',
+  )
+
+  const byCollection = await client.get(
+    `/nfts?collection=${encodeURIComponent('Kurio Editions')}&excludeId=teal-motion-062&sort=recent&tab=todos&pageSize=10`,
+  )
+  check(
+    byCollection.status === 200 &&
+      byCollection.data.items.every(
+        (item: MockNft) =>
+          item.collection === 'Kurio Editions' && item.id !== 'teal-motion-062',
+      ),
+    'recomendações: filtra por coleção e exclui o NFT atual',
+  )
 
   await server.close()
 

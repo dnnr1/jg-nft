@@ -7,6 +7,20 @@ import {
   type CatalogTab,
 } from './search-params'
 
+export const nftReviewItemSchema = z.object({
+  id: z.string(),
+  author: z.string(),
+  rating: z.number().min(0).max(5),
+  comment: z.string(),
+  date: z.string(),
+})
+
+export const nftReviewsSchema = z.object({
+  average: z.number().min(0).max(5),
+  count: z.number().int().min(0),
+  items: z.array(nftReviewItemSchema),
+})
+
 export const nftSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -20,6 +34,11 @@ export const nftSchema = z.object({
   image: z.string(),
   images: z.array(z.string()),
   description: z.string(),
+  tokenId: z.string().optional(),
+  rarity: z.enum(['RARO', 'COMUM', 'ÚNICO']).optional(),
+  attributes: z.array(z.object({ trait: z.string(), value: z.string() })).optional(),
+  details: z.string().optional(),
+  reviews: nftReviewsSchema.optional(),
   editable: z.boolean(),
   available: z.number().int(),
   favoritesCount: z.number().int(),
@@ -28,6 +47,8 @@ export const nftSchema = z.object({
   createdAt: z.string(),
 })
 
+export type NftReviewItem = z.infer<typeof nftReviewItemSchema>
+export type NftReviews = z.infer<typeof nftReviewsSchema>
 export type Nft = z.infer<typeof nftSchema>
 
 export const facetSchema = z.object({
@@ -56,6 +77,8 @@ export interface CatalogRequestParams {
   networks?: CatalogNetwork[]
   minPrice?: string
   maxPrice?: string
+  collection?: string
+  excludeId?: string
   sort: CatalogSort
   tab: CatalogTab
   page: number

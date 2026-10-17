@@ -11,6 +11,7 @@ export function CatalogItem({ nft }: CatalogItemProps) {
     <Link
       to="/nfts/$id"
       params={{ id: nft.id }}
+      search={{ qty: 1 }}
       aria-label={`Ver ${nft.name}`}
       className="block"
     >

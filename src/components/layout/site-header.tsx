@@ -15,25 +15,30 @@ import {
 interface NavEntry {
   label: string
   hash?: string
-  isHome?: boolean
 }
 
 const NAV_ENTRIES: ReadonlyArray<NavEntry> = [
-  { label: 'Início', isHome: true },
+  { label: 'Início' },
   { label: 'Mercado', hash: 'catalogo' },
   { label: 'Criadores', hash: 'criadores' },
   { label: 'Aprenda', hash: 'diario' },
 ]
 
-function NavAnchor({ entry, home }: { entry: NavEntry; home: boolean }) {
+function NavAnchor({
+  entry,
+  active,
+}: {
+  entry: NavEntry
+  active: boolean
+}) {
   return (
     <Link
       to="/"
       hash={entry.hash}
-      aria-current={entry.isHome && home ? 'page' : undefined}
+      aria-current={active ? 'page' : undefined}
       className={cn(
         'relative inline-flex pb-5 text-body-lg-bold transition-colors',
-        entry.isHome ? 'text-primary' : 'text-foreground hover:text-text-accent',
+        active ? 'text-primary' : 'text-foreground hover:text-text-accent',
       )}
     >
       {entry.label}
@@ -41,7 +46,7 @@ function NavAnchor({ entry, home }: { entry: NavEntry; home: boolean }) {
         aria-hidden="true"
         className={cn(
           'absolute bottom-0 left-0 h-0.75 w-full bg-primary transition-opacity',
-          entry.isHome && home ? 'opacity-100' : 'opacity-0',
+          active ? 'opacity-100' : 'opacity-0',
         )}
       />
     </Link>
@@ -110,9 +115,15 @@ function HeaderSearch() {
 }
 
 export function SiteHeader({ divider }: { divider: boolean }) {
-  const home = useRouterState({
-    select: (state) => state.location.pathname === '/',
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
   })
+
+  const isEntryActive = (label: string): boolean => {
+    if (label === 'Início') return pathname === '/'
+    if (label === 'Mercado') return pathname.startsWith('/nfts/')
+    return false
+  }
 
   return (
     <header
@@ -132,7 +143,11 @@ export function SiteHeader({ divider }: { divider: boolean }) {
         className="flex gap-8 text-body-lg-bold"
       >
         {NAV_ENTRIES.map((entry) => (
-          <NavAnchor key={entry.label} entry={entry} home={home} />
+          <NavAnchor
+            key={entry.label}
+            entry={entry}
+            active={isEntryActive(entry.label)}
+          />
         ))}
       </nav>
       <div className="flex items-center gap-4">

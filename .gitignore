@@ -10,3 +10,8 @@ dist/
 /test-results/
 /playwright-report/
 /blob-report/
+
+# Local Netlify folder
+.netlify
+
+.netlify/

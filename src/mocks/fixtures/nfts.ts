@@ -1,4 +1,4 @@
-import type { Nft } from '@/modules/catalog/types'
+import type { Nft, NftReviewItem } from '@/modules/catalog/types'
 import {
   CATALOG_NETWORKS,
   CATEGORIES,
@@ -59,6 +59,92 @@ const IMAGE_FILES = [
   'violet-nomad-314.png',
 ] as const
 
+const EDITION_TOTALS = [1, 10, 25, 50] as const
+
+interface NftSeed {
+  name: string
+  priceCents: number
+  previousPriceCents?: number
+  collection: string
+  network?: CatalogNetwork
+  edition?: { current: number; total: number }
+  available?: number
+  editable?: boolean
+  rarity?: 'RARO' | 'COMUM' | 'ÚNICO'
+  attributes?: Array<{ trait: string; value: string }>
+  reviews?: NftReviewItem[]
+}
+
+function review(
+  id: string,
+  author: string,
+  rating: number,
+  comment: string,
+  day: number,
+): NftReviewItem {
+  return {
+    id,
+    author,
+    rating,
+    comment,
+    date: `2026-09-${String(day).padStart(2, '0')}T12:00:00.000Z`,
+  }
+}
+
+const heroSeeds: NftSeed[] = [
+  {
+    name: 'Emerald Ape #042',
+    priceCents: 119,
+    collection: 'Kurio Apes',
+    reviews: [
+      review('rev-emerald-1', 'Ana Vaz', 5, 'Peça impecável, com rastreio completo da edição.', 12),
+      review('rev-emerald-2', 'Bruno Sato', 4, 'Chega rápido e a arte é ainda melhor ao vivo.', 14),
+    ],
+  },
+  {
+    name: 'Sage Nomad #009',
+    priceCents: 169,
+    collection: 'Kurio Nomads',
+    reviews: [
+      review('rev-sage-1', 'Clara Mendes', 5, 'Minha peça favorita da coleção, detalhes incríveis.', 12),
+      review('rev-sage-2', 'Diego Ruiz', 5, 'Vale cada fração de ETH. Recomendo demais.', 15),
+    ],
+  },
+  {
+    name: 'Neon Vessel #552',
+    priceCents: 199,
+    previousPriceCents: 229,
+    collection: 'Kurio Editions',
+    reviews: [
+      review('rev-neon-1', 'Elisa Kim', 4, 'Cores vibrantes e procedência verificada.', 13),
+      review('rev-neon-2', 'Ana Vaz', 3, 'Bonita, mas esperava mais variedade na galeria.', 16),
+    ],
+  },
+  { name: 'Cosmic Bloom #118', priceCents: 129, collection: 'Kurio Blooms' },
+  { name: 'Violet Nomad #314', priceCents: 139, collection: 'Kurio Nomads' },
+  { name: 'Ivory Baron #088', priceCents: 179, collection: 'Kurio Editions' },
+  { name: 'Golden Beat #207', priceCents: 99, collection: 'Kurio Signals' },
+  { name: 'Golden Signal #160', priceCents: 39, collection: 'Kurio Signals' },
+  { name: 'Golden Frequency #071', priceCents: 245, collection: 'Kurio Editions' },
+  {
+    name: 'Teal Motion #062',
+    priceCents: 45,
+    collection: 'Kurio Editions',
+    network: 'solana',
+    edition: { current: 13, total: 50 },
+    available: 3,
+    rarity: 'COMUM',
+    attributes: [
+      { trait: 'Paleta', value: 'Coral' },
+      { trait: 'Elemento', value: 'Fluido' },
+    ],
+    reviews: [
+      review('rev-teal-1', 'Ana Vaz', 5, 'Movimento e cor em equilíbrio perfeito. Compra certeira.', 12),
+      review('rev-teal-2', 'Bruno Sato', 2, 'A arte é bonita, mas a paleta não me convenceu.', 17),
+    ],
+  },
+]
+
 function formatCents(cents: number): string {
   const whole = Math.floor(cents / 100)
   const fraction = cents % 100
@@ -81,44 +167,76 @@ function createdAt(index: number): string {
   return date.toISOString()
 }
 
-function buildNft(
-  index: number,
-  seed: {
-    name: string
-    priceCents: number
-    previousPriceCents?: number
-    collection: string
-  },
-): Nft {
+function tokenIdOf(name: string): string {
+  const digits = name.match(/#(\d+)/)?.[1] ?? '0'
+  return `#${digits.padStart(4, '0')}`
+}
+
+function attributesOf(name: string): Array<{ trait: string; value: string }> {
+  const [adjective = '', noun = ''] = name.split(' ')
+  return [
+    { trait: 'Paleta', value: adjective },
+    { trait: 'Elemento', value: noun },
+  ]
+}
+
+function galleryOf(id: string, index: number): string[] {
+  const ownFile = IMAGE_FILES.find((file) => file.replace('.png', '') === id)
+  const ordered = ownFile
+    ? [ownFile, ...IMAGE_FILES.filter((file) => file !== ownFile)]
+    : [
+        ...IMAGE_FILES.slice(index % IMAGE_FILES.length),
+        ...IMAGE_FILES.slice(0, index % IMAGE_FILES.length),
+      ]
+  return ordered.map((file) => `/assets/nft/${file}`)
+}
+
+function averageOf(items: NftReviewItem[]): number {
+  if (items.length === 0) return 0
+  return items.reduce((sum, item) => sum + item.rating, 0) / items.length
+}
+
+function buildNft(index: number, seed: NftSeed): Nft {
   const id = slugify(seed.name)
   const category = pick(CATEGORIES, index)
-  const network: CatalogNetwork = pick(CATALOG_NETWORKS, index)
+  const network: CatalogNetwork = seed.network ?? pick(CATALOG_NETWORKS, index)
   const creator = pick(CREATORS, index)
-  const editionTotals = [1, 10, 25, 50] as const
-  const total = pick(editionTotals, index)
-  const soldOut = index % 13 === 5
-  const available = soldOut ? 0 : Math.max(1, total - ((index * 3) % total))
-  const imageFile =
-    IMAGE_FILES.find((file) => file.replace('.png', '') === id) ??
-    pick(IMAGE_FILES, index)
-  const image = `/assets/nft/${imageFile}`
+  const total = seed.edition?.total ?? pick(EDITION_TOTALS, index)
+  const current = seed.edition?.current ?? 1
+  const soldOut = seed.available === 0 || (seed.available === undefined && index % 13 === 5)
+  const available =
+    seed.available ??
+    (soldOut ? 0 : Math.max(1, total - ((index * 3) % total)))
+  const images = galleryOf(id, index)
+  const reviews = seed.reviews
+    ? {
+        average: averageOf(seed.reviews),
+        count: seed.reviews.length,
+        items: seed.reviews,
+      }
+    : undefined
 
   return {
     id,
     name: seed.name,
     collection: seed.collection,
     creator: { id: creator.id, name: creator.name },
-    edition: { current: 1, total },
+    edition: { current, total },
     price: formatCents(seed.priceCents),
     previousPrice: seed.previousPriceCents
       ? formatCents(seed.previousPriceCents)
       : undefined,
     network,
     categories: [category],
-    image,
-    images: [image],
+    image: images[0] ?? `/assets/nft/${pick(IMAGE_FILES, index)}`,
+    images,
     description: `Peça da coleção ${seed.collection}, criada por ${creator.name}. Edição verificada com procedência on-chain.`,
-    editable: index % 9 !== 0,
+    tokenId: tokenIdOf(seed.name),
+    rarity: seed.rarity ?? (total === 1 ? 'ÚNICO' : index % 5 === 0 ? 'RARO' : 'COMUM'),
+    attributes: seed.attributes ?? attributesOf(seed.name),
+    details: `${seed.name} é uma obra digital da coleção ${seed.collection}. Cada atributo fica registrado nos metadados do token.\nA propriedade inclui a arte em alta resolução e acesso exclusivo para colecionadores.`,
+    reviews,
+    editable: seed.editable ?? index % 9 !== 0,
     available,
     favoritesCount: (index * 11) % 240,
     version: 1,
@@ -128,28 +246,6 @@ function buildNft(
 }
 
 function buildCatalog(): Nft[] {
-  const heroSeeds: Array<{
-    name: string
-    priceCents: number
-    previousPriceCents?: number
-    collection: string
-  }> = [
-    { name: 'Emerald Ape #042', priceCents: 119, collection: 'Kurio Apes' },
-    { name: 'Sage Nomad #009', priceCents: 169, collection: 'Kurio Nomads' },
-    {
-      name: 'Neon Vessel #552',
-      priceCents: 199,
-      previousPriceCents: 229,
-      collection: 'Kurio Editions',
-    },
-    { name: 'Cosmic Bloom #118', priceCents: 129, collection: 'Kurio Blooms' },
-    { name: 'Violet Nomad #314', priceCents: 139, collection: 'Kurio Nomads' },
-    { name: 'Ivory Baron #088', priceCents: 179, collection: 'Kurio Editions' },
-    { name: 'Golden Beat #207', priceCents: 99, collection: 'Kurio Signals' },
-    { name: 'Golden Signal #160', priceCents: 39, collection: 'Kurio Signals' },
-    { name: 'Golden Frequency #071', priceCents: 245, collection: 'Kurio Editions' },
-  ]
-
   const nfts: Nft[] = heroSeeds.map((seed, index) => buildNft(index, seed))
 
   for (let i = 0; nfts.length < 36; i++) {
@@ -160,14 +256,33 @@ function buildCatalog(): Nft[] {
     const priceCents = ((i * 137 + 41) % 1229) + 2
     const withPriceDrop = i % 7 === 3 && priceCents + 55 <= 1230
 
-    nfts.push(
-      buildNft(index, {
-        name: `${adjective} ${noun} #${number}`,
-        priceCents,
-        previousPriceCents: withPriceDrop ? priceCents + 55 : undefined,
-        collection: pick(COLLECTIONS, i),
-      }),
-    )
+    const seed: NftSeed = {
+      name: `${adjective} ${noun} #${number}`,
+      priceCents,
+      previousPriceCents: withPriceDrop ? priceCents + 55 : undefined,
+      collection: pick(COLLECTIONS, i),
+    }
+
+    if (i % 5 === 0) {
+      seed.reviews = [
+        review(
+          `rev-gen-${i}-a`,
+          pick(CREATORS, i + 2).name,
+          (i % 4) + 1,
+          'Arte com acabamento impecável e procedência verificada.',
+          (i % 26) + 2,
+        ),
+        review(
+          `rev-gen-${i}-b`,
+          pick(CREATORS, i + 4).name,
+          ((i + 3) % 3) + 2,
+          'Compra tranquila no marketplace. Recomendo a coleção.',
+          (i % 25) + 4,
+        ),
+      ]
+    }
+
+    nfts.push(buildNft(index, seed))
   }
 
   return nfts

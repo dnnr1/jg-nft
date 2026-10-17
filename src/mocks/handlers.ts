@@ -184,6 +184,16 @@ export const handlers = [
       items = items.filter((nft) => toCents(nft.price) <= toCents(maxPrice))
     }
 
+    const collection = params.get('collection')
+    if (collection) {
+      items = items.filter((nft) => nft.collection === collection)
+    }
+
+    const excludeId = params.get('excludeId')
+    if (excludeId) {
+      items = items.filter((nft) => nft.id !== excludeId)
+    }
+
     const sorted = sortItems(items, sort)
     const total = sorted.length
     const start = (page - 1) * pageSize
@@ -196,5 +206,24 @@ export const handlers = [
       pageSize,
       total,
     })
+  }),
+
+  http.get('*/api/nfts/:id', async ({ params }) => {
+    await sleep(LATENCY_MS)
+
+    const nft = nftFixtures.find((item) => item.id === params.id)
+    if (!nft) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'NOT_FOUND',
+            message: 'NFT não encontrado',
+            requestId: 'mock-nfts',
+          },
+        },
+        { status: 404 },
+      )
+    }
+    return HttpResponse.json(nft)
   }),
 ]

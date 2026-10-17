@@ -55,6 +55,9 @@ function RootComponent() {
   const isCatalog = useRouterState({
     select: (state) => state.location.pathname === '/',
   })
+  const isNftDetail = useRouterState({
+    select: (state) => state.location.pathname.startsWith('/nfts/'),
+  })
 
   return (
     <RootDocument>
@@ -66,7 +69,9 @@ function RootComponent() {
       </a>
       <main
         id="conteudo"
-        className={`mx-auto max-w-[1440px] px-6 py-10 md:px-30 md:py-6 ${
+        className={`mx-auto max-w-[1440px] ${
+          isNftDetail ? 'p-0 md:px-30 md:py-6' : 'px-6 py-10 md:px-30 md:py-6'
+        } ${
           isCatalog
             ? 'pb-[calc(128px+env(safe-area-inset-bottom,0px))] md:pb-6'
             : ''
