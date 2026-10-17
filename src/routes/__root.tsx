@@ -70,7 +70,9 @@ function RootComponent() {
       <main
         id="conteudo"
         className={`mx-auto max-w-[1440px] ${
-          isNftDetail ? 'p-0 md:px-30 md:py-6' : 'px-6 py-10 md:px-30 md:py-6'
+          isNftDetail
+            ? 'p-0 md:px-6 md:py-6 xl:px-30'
+            : 'px-6 py-10 md:py-6 xl:px-30'
         } ${
           isCatalog
             ? 'pb-[calc(128px+env(safe-area-inset-bottom,0px))] md:pb-6'
