@@ -4,7 +4,17 @@ import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query
 
 import { routeTree } from './routeTree.gen'
 
-export function getRouter() {
+function mocksEnabled(): boolean {
+  const flag = import.meta.env.VITE_ENABLE_MOCKS
+  return flag == null ? import.meta.env.DEV : flag === 'true'
+}
+
+export async function getRouter() {
+  if (mocksEnabled() && !import.meta.env.SSR) {
+    const { enableMocks } = await import('./mocks/browser')
+    await enableMocks()
+  }
+
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -29,6 +39,6 @@ export function getRouter() {
 
 declare module '@tanstack/react-router' {
   interface Register {
-    router: ReturnType<typeof getRouter>
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }
