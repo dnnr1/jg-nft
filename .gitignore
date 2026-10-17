@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.output/
+.tanstack/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.local
+/test-results/
+/playwright-report/
+/blob-report/
