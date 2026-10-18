@@ -1,10 +1,15 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { Heart, ScanLine, ShoppingCart, UserRound } from 'lucide-react'
 
+import { useCartCount } from '@/modules/cart/use-cart-count'
+
 export function MobileTabBar() {
-  const onHome = useRouterState({
-    select: (state) => state.location.pathname === '/',
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
   })
+  const onHome = pathname === '/'
+  const onCart = pathname === '/cart'
+  const cartCount = useCartCount()
 
   return (
     <nav aria-label="Navegação mobile" className="dock md:hidden">
@@ -32,8 +37,25 @@ export function MobileTabBar() {
         <Link to="/wallets" aria-label="Carteiras" className="dock-fab">
           <ScanLine aria-hidden="true" />
         </Link>
-        <Link to="/cart" aria-label="Carrinho" className="dock-item">
-          <ShoppingCart aria-hidden="true" fill="currentColor" />
+        <Link
+          to="/cart"
+          aria-label={
+            cartCount > 0 ? `Carrinho — ${cartCount} edições` : 'Carrinho — vazio'
+          }
+          aria-current={onCart ? 'page' : undefined}
+          className="dock-item"
+        >
+          <span className="relative inline-flex">
+            <ShoppingCart aria-hidden="true" fill="currentColor" />
+            {cartCount > 0 ? (
+              <span
+                aria-hidden="true"
+                className="text-tiny-bold absolute -top-1.5 -right-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-ink"
+              >
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            ) : null}
+          </span>
         </Link>
         <Link to="/login" aria-label="Perfil" className="dock-item">
           <UserRound aria-hidden="true" fill="currentColor" />

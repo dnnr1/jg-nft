@@ -1,9 +1,12 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 
+import { Toast, type ToastTone } from '@/components/common/toast'
 import { Button } from '@/components/ui/button'
+import { apiErrorMessage } from '@/lib/api'
+import { useAddCartItem } from '@/modules/cart/mutations'
 import { NftGallery } from '@/modules/nft-detail/components/nft-gallery'
 import { NftInfoPanel } from '@/modules/nft-detail/components/nft-info-panel'
 import { NftTabs } from '@/modules/nft-detail/components/nft-tabs'
@@ -44,6 +47,12 @@ function NftDetailPage() {
   const recommendationsQuery = useQuery(
     collectionRecommendationsQuery(id, detailQuery.data?.collection),
   )
+  const addToCart = useAddCartItem()
+  const [toast, setToast] = useState<{
+    tone: ToastTone
+    message: string
+  } | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
 
   const changeQty = useCallback(
     (next: number) => {
@@ -101,6 +110,30 @@ function NftDetailPage() {
   const nft = detailQuery.data
   const displayQty = Math.min(qty, Math.max(1, nft.available))
 
+  const buyNft = () => {
+    setToast({ tone: 'pending', message: 'Adicionando ao carrinho…' })
+    addToCart.mutate(
+      { nft, quantity: displayQty },
+      {
+        onSuccess: (_, variables) =>
+          setToast({
+            tone: 'success',
+            message: `${nft.name} adicionado ao carrinho (${variables.quantity} ${
+              variables.quantity === 1 ? 'edição' : 'edições'
+            }).`,
+          }),
+        onError: (error) =>
+          setToast({
+            tone: 'error',
+            message: apiErrorMessage(
+              error,
+              'Não foi possível adicionar ao carrinho.',
+            ),
+          }),
+      },
+    )
+  }
+
   return (
     <div className="min-h-dvh bg-surface-raised px-4 pt-4 pb-40 md:min-h-0 md:bg-transparent md:px-0 md:pt-0 md:pb-16">
       <div className="flex flex-col gap-4 md:gap-24">
@@ -129,21 +162,35 @@ function NftDetailPage() {
 
           <div className="grid grid-cols-1 items-start gap-0 md:gap-8 lg:grid-cols-2">
             <NftGallery nft={nft} />
-            <NftInfoPanel nft={nft} qty={qty} onQtyChange={changeQty} />
+            <NftInfoPanel
+              nft={nft}
+              qty={qty}
+              onQtyChange={changeQty}
+              onBuy={buyNft}
+              buyPending={addToCart.isPending}
+            />
           </div>
         </div>
-
-        <p
-          role="status"
-          aria-live="polite"
-          className="px-6 py-2 text-sm text-text-secondary md:px-0"
-        />
 
         <NftTabs nft={nft} />
         <NftRecommendations query={recommendationsQuery} currentId={nft.id} />
       </div>
 
-      <PurchaseBar nft={nft} qty={qty} onQtyChange={changeQty} />
+      <PurchaseBar
+        nft={nft}
+        qty={qty}
+        onQtyChange={changeQty}
+        onBuy={buyNft}
+        buyPending={addToCart.isPending}
+      />
+
+      {toast ? (
+        <Toast
+          message={toast.message}
+          tone={toast.tone}
+          onClose={closeToast}
+        />
+      ) : null}
 
       <span role="status" className="sr-only">
         {`Quantidade selecionada: ${displayQty}. Estoque disponível: ${nft.available}. ${nft.price} ETH.`}

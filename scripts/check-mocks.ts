@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { setupServer } from 'msw/node'
 
+import { resetCart } from '../src/mocks/cart-store'
 import { handlers } from '../src/mocks/handlers'
 
 interface MockNft {
@@ -187,6 +188,183 @@ async function main(): Promise<void> {
           item.collection === 'Kurio Editions' && item.id !== 'teal-motion-062',
       ),
     'recomendações: filtra por coleção e exclui o NFT atual',
+  )
+
+  console.log('\nContrato /api/cart:')
+
+  resetCart()
+  const cart = await client.get('/cart')
+  check(cart.status === 200, 'status 200 na consulta do carrinho')
+  check(cart.data.items.length === 3, 'cenário inicial com 3 itens')
+  check(cart.data.summary.editions === 17, 'total de edições = 17')
+  check(
+    cart.data.summary.subtotal === '26.83',
+    `subtotal = 26.83 (recebido ${cart.data.summary.subtotal})`,
+  )
+  check(
+    cart.data.summary.networkFee === '0.016',
+    `taxa de rede = 0.016 (recebido ${cart.data.summary.networkFee})`,
+  )
+  check(
+    cart.data.summary.total === '26.846',
+    `total = 26.846 (recebido ${cart.data.summary.total})`,
+  )
+  check(
+    cart.data.items.every(
+      (item: { lineTotal: string; unitPrice: string; quantity: number }) =>
+        Number(item.lineTotal).toFixed(2) ===
+        (Number(item.unitPrice) * item.quantity).toFixed(2),
+    ),
+    'total de cada linha = preço unitário × quantidade',
+  )
+
+  const updated = await client.patch('/cart/items/violet-nomad-314', {
+    quantity: 3,
+  })
+  check(
+    updated.status === 200 &&
+      updated.data.items.find(
+        (item: { id: string }) => item.id === 'violet-nomad-314',
+      )?.quantity === 3,
+    'PATCH de quantidade atualiza o item',
+  )
+  check(
+    updated.data.summary?.subtotal === '22.66',
+    `subtotal após alteração = 22.66 (recebido ${updated.data.summary?.subtotal})`,
+  )
+
+  const overflow = await client.patch('/cart/items/emerald-ape-042', {
+    quantity: 999,
+  })
+  check(
+    overflow.status === 409 &&
+      overflow.data.error?.code === 'AVAILABILITY_CONFLICT',
+    'quantidade acima da disponibilidade -> 409',
+  )
+
+  const zero = await client.patch('/cart/items/emerald-ape-042', { quantity: 0 })
+  check(zero.status === 422, 'quantidade inválida -> 422')
+
+  const missingItem = await client.patch('/cart/items/nao-existe', {
+    quantity: 2,
+  })
+  check(
+    missingItem.status === 404 && missingItem.data.error?.code === 'NOT_FOUND',
+    'item inexistente -> 404',
+  )
+
+  resetCart()
+  const badCoupon = await client.post('/cart/coupon', { code: 'NAOEXISTE' })
+  check(
+    badCoupon.status === 404 && badCoupon.data.error?.code === 'COUPON_NOT_FOUND',
+    'cupom inválido -> 404',
+  )
+
+  const expiredCoupon = await client.post('/cart/coupon', { code: 'EXPIRADO' })
+  check(
+    expiredCoupon.status === 410 &&
+      expiredCoupon.data.error?.code === 'COUPON_EXPIRED',
+    'cupom expirado -> 410',
+  )
+
+  const applied = await client.post('/cart/coupon', { code: 'kurio10' })
+  check(
+    applied.status === 200 &&
+      applied.data.coupon?.code === 'KURIO10' &&
+      applied.data.summary?.discount === '2.683' &&
+      applied.data.summary?.total === '24.163',
+    'cupom válido aplica 10% e recalcula o total',
+  )
+
+  const couponRemoved = await client.delete('/cart/coupon')
+  check(
+    couponRemoved.status === 200 &&
+      couponRemoved.data.coupon === null &&
+      couponRemoved.data.summary?.discount === '0.00',
+    'remoção do cupom zera o desconto',
+  )
+
+  const removed = await client.delete('/cart/items/ivory-baron-088')
+  check(
+    removed.status === 200 && removed.data.items.length === 2,
+    'DELETE remove o item do carrinho',
+  )
+
+  resetCart()
+  const added = await client.post('/cart/items', {
+    nftId: 'cosmic-bloom-118',
+    quantity: 2,
+  })
+  check(
+    added.status === 200 &&
+      added.data.items.length === 4 &&
+      added.data.items.find(
+        (item: { id: string }) => item.id === 'cosmic-bloom-118',
+      )?.quantity === 2,
+    'POST adiciona um NFT novo ao carrinho',
+  )
+  check(
+    added.data.summary?.editions === 19 && added.data.summary?.subtotal === '29.41',
+    `resumo após inclusão: 19 edições e 29.41 (recebido ${added.data.summary?.editions} e ${added.data.summary?.subtotal})`,
+  )
+
+  const merged = await client.post('/cart/items', {
+    nftId: 'cosmic-bloom-118',
+    quantity: 1,
+  })
+  check(
+    merged.status === 200 &&
+      merged.data.items.length === 4 &&
+      merged.data.items.find(
+        (item: { id: string }) => item.id === 'cosmic-bloom-118',
+      )?.quantity === 3,
+    'POST soma a quantidade quando o NFT já está no carrinho',
+  )
+
+  const addOverflow = await client.post('/cart/items', {
+    nftId: 'emerald-ape-042',
+    quantity: 24,
+  })
+  check(
+    addOverflow.status === 409 &&
+      addOverflow.data.error?.code === 'AVAILABILITY_CONFLICT',
+    'POST que ultrapassa a disponibilidade -> 409',
+  )
+
+  const addUnavailable = await client.post('/cart/items', {
+    nftId: 'teal-motion-062',
+    quantity: 1,
+  })
+  check(
+    addUnavailable.status === 409 &&
+      addUnavailable.data.error?.code === 'AVAILABILITY_CONFLICT',
+    'POST de NFT não editável -> 409',
+  )
+
+  const addMissing = await client.post('/cart/items', {
+    nftId: 'nao-existe',
+    quantity: 1,
+  })
+  check(
+    addMissing.status === 404 && addMissing.data.error?.code === 'NOT_FOUND',
+    'POST de NFT inexistente -> 404',
+  )
+
+  const addInvalid = await client.post('/cart/items', {
+    nftId: 'cosmic-bloom-118',
+    quantity: 0,
+  })
+  check(addInvalid.status === 422, 'POST com quantidade inválida -> 422')
+
+  const addNoNft = await client.post('/cart/items', { quantity: 1 })
+  check(addNoNft.status === 422, 'POST sem nftId -> 422')
+
+  resetCart()
+  const restored = await client.get('/cart')
+  check(
+    restored.data.items.length === 3 &&
+      restored.data.summary?.total === '26.846',
+    'reset restaura o cenário conhecido',
   )
 
   await server.close()

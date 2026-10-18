@@ -11,6 +11,15 @@ import {
 } from '@/modules/catalog/search-params'
 import type { Nft } from '@/modules/catalog/types'
 
+import {
+  CartError,
+  addCartItem,
+  applyCoupon,
+  readCart,
+  removeCartItem,
+  removeCoupon,
+  updateCartItemQuantity,
+} from './cart-store'
 import { nftFixtures } from './fixtures/nfts'
 
 const LATENCY_MS = 350
@@ -35,6 +44,30 @@ function validationError(message: string) {
     },
     { status: 422 },
   )
+}
+
+function cartErrorResponse(error: CartError) {
+  return HttpResponse.json(
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        requestId: 'mock-cart',
+      },
+    },
+    { status: error.status },
+  )
+}
+
+function asCartError(error: unknown): CartError {
+  if (error instanceof CartError) return error
+  throw error
+}
+
+function parseQuantity(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  return null
 }
 
 const PRICE_PATTERN = /^\d{1,2}(\.\d{1,2})?$/
@@ -225,5 +258,87 @@ export const handlers = [
       )
     }
     return HttpResponse.json(nft)
+  }),
+
+  http.get('*/api/cart', async () => {
+    await sleep(LATENCY_MS)
+    return HttpResponse.json(readCart())
+  }),
+
+  http.post('*/api/cart/items', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = (await request.json().catch(() => null)) as
+      | { nftId?: unknown; quantity?: unknown }
+      | null
+    if (typeof body?.nftId !== 'string') {
+      return validationError('O corpo deve conter "nftId" como string')
+    }
+    const quantity = parseQuantity(body?.quantity)
+    if (quantity === null || quantity < 1) {
+      return validationError(
+        'O corpo deve conter "quantity" como inteiro maior ou igual a 1',
+      )
+    }
+
+    try {
+      return HttpResponse.json(addCartItem(body.nftId, quantity))
+    } catch (error) {
+      return cartErrorResponse(asCartError(error))
+    }
+  }),
+
+  http.patch('*/api/cart/items/:id', async ({ params, request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = (await request.json().catch(() => null)) as
+      | { quantity?: unknown }
+      | null
+    const quantity = parseQuantity(body?.quantity)
+    if (quantity === null || quantity < 1) {
+      return validationError(
+        'O corpo deve conter "quantity" como inteiro maior ou igual a 1',
+      )
+    }
+
+    try {
+      return HttpResponse.json(
+        updateCartItemQuantity(String(params.id), quantity),
+      )
+    } catch (error) {
+      return cartErrorResponse(asCartError(error))
+    }
+  }),
+
+  http.delete('*/api/cart/items/:id', async ({ params }) => {
+    await sleep(LATENCY_MS)
+
+    try {
+      return HttpResponse.json(removeCartItem(String(params.id)))
+    } catch (error) {
+      return cartErrorResponse(asCartError(error))
+    }
+  }),
+
+  http.post('*/api/cart/coupon', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = (await request.json().catch(() => null)) as
+      | { code?: unknown }
+      | null
+    if (typeof body?.code !== 'string') {
+      return validationError('O corpo deve conter "code" como string')
+    }
+
+    try {
+      return HttpResponse.json(applyCoupon(body.code))
+    } catch (error) {
+      return cartErrorResponse(asCartError(error))
+    }
+  }),
+
+  http.delete('*/api/cart/coupon', async () => {
+    await sleep(LATENCY_MS)
+    return HttpResponse.json(removeCoupon())
   }),
 ]
