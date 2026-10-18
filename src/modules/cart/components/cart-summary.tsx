@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from 'cn'
+import { useAuth } from '@/modules/auth/auth-context'
 import type { Cart } from '../types'
+
+/**
+ * O checkout exige sessão, então o CTA muda de rótulo conforme o visitante.
+ * `text-base` (16px/24px) equivale ao token body-lg-bold; usar o tamanho cru
+ * preserva o `text-ink` escuro da variante, que o merge descartaria.
+ */
+const CHECKOUT_CTA_CLASS = cn(
+  buttonVariants({ size: 'full' }),
+  'text-base mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
+)
 
 interface CartSummaryPanelProps {
   cart: Cart
@@ -122,6 +133,16 @@ export function CartSummaryPanel({
 }: CartSummaryPanelProps) {
   const { summary } = cart
   const panelRef = useRef<HTMLElement>(null)
+  const { user, openAuthDialog } = useAuth()
+  const navigate = useNavigate()
+  /** Retoma o checkout assim que o login pedido por este botão concluir. */
+  const [resumeCheckout, setResumeCheckout] = useState(false)
+
+  useEffect(() => {
+    if (!resumeCheckout || !user) return
+    setResumeCheckout(false)
+    void navigate({ to: '/checkout' })
+  }, [resumeCheckout, user, navigate])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -200,30 +221,24 @@ export function CartSummaryPanel({
       </dl>
 
       {blocked ? (
-        <button
-          type="button"
-          disabled
-          className={cn(
-            buttonVariants({ size: 'full' }),
-            // text-base (16px/24px) equals the body-lg-bold token; using the raw
-            // size keeps the variant's dark text-ink from being merged away.
-            'text-base mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
-          )}
-        >
+        <button type="button" disabled className={CHECKOUT_CTA_CLASS}>
           Edição indisponível
         </button>
+      ) : user ? (
+        <Link to="/checkout" className={CHECKOUT_CTA_CLASS}>
+          Finalizar
+        </Link>
       ) : (
-        <Link
-          to="/checkout"
-          className={cn(
-            buttonVariants({ size: 'full' }),
-            // text-base (16px/24px) equals the body-lg-bold token; using the raw
-            // size keeps the variant's dark text-ink from being merged away.
-            'text-base mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
-          )}
+        <button
+          type="button"
+          onClick={() => {
+            setResumeCheckout(true)
+            openAuthDialog('login')
+          }}
+          className={CHECKOUT_CTA_CLASS}
         >
           Conectar e finalizar
-        </Link>
+        </button>
       )}
 
       <Link
