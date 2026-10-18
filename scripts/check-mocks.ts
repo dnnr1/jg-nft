@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node'
 
 import { resetCart } from '../src/mocks/cart-store'
 import { handlers } from '../src/mocks/handlers'
+import { DEMO_ORDER_ID, resetOrders } from '../src/mocks/order-store'
 import { resetWallets } from '../src/mocks/wallet-store'
 
 interface MockNft {
@@ -493,6 +494,100 @@ async function main(): Promise<void> {
       (wallet: { id: string }) => wallet.id === 'wallet-reserva',
     )?.connected === true,
     'reset das carteiras restaura o cenário conhecido',
+  )
+
+  console.log('\nContrato /api/orders:')
+
+  resetOrders()
+  resetCart()
+
+  const demoReceipt = await client.get(`/orders/${DEMO_ORDER_ID}`)
+  check(
+    demoReceipt.status === 200 &&
+      demoReceipt.data.status === 'confirmed' &&
+      demoReceipt.data.summary.total === '26.846' &&
+      demoReceipt.data.items.length === 3 &&
+      demoReceipt.data.walletLabel === 'MetaMask',
+    'recibo de demonstração: confirmado, 3 itens e total 26.846',
+  )
+
+  const orderCreated = await client.post(
+    '/orders',
+    { provider: 'metamask' },
+    { headers: { 'Idempotency-Key': 'check-order-1' } },
+  )
+  check(
+    orderCreated.status === 201 && orderCreated.data.status === 'confirmed',
+    'criação de pedido -> 201 confirmado',
+  )
+  check(
+    orderCreated.data.summary?.total === '26.846' &&
+      orderCreated.data.items?.length === 3,
+    'pedido copia o snapshot do carrinho (3 itens, total 26.846)',
+  )
+  check(
+    orderCreated.data.walletLabel === 'MetaMask' &&
+      /^0x[0-9A-F]{40}$/.test(orderCreated.data.transactionId ?? ''),
+    'recibo registra a carteira e um hash de transação',
+  )
+
+  const cartAfterPurchase = await client.get('/cart')
+  check(
+    cartAfterPurchase.data.items.length === 0,
+    'itens comprados saem do carrinho após a confirmação',
+  )
+
+  const orderRetry = await client.post(
+    '/orders',
+    { provider: 'metamask' },
+    { headers: { 'Idempotency-Key': 'check-order-1' } },
+  )
+  check(
+    orderRetry.status === 201 && orderRetry.data.id === orderCreated.data.id,
+    'mesma chave de idempotência recupera o mesmo pedido',
+  )
+
+  const orderConflict = await client.post(
+    '/orders',
+    { provider: 'coinbase' },
+    { headers: { 'Idempotency-Key': 'check-order-1' } },
+  )
+  check(
+    orderConflict.status === 409 &&
+      orderConflict.data.error?.code === 'IDEMPOTENCY_CONFLICT',
+    'chave reutilizada com outro conteúdo -> 409',
+  )
+
+  const emptyOrder = await client.post(
+    '/orders',
+    { provider: 'metamask' },
+    { headers: { 'Idempotency-Key': 'check-order-2' } },
+  )
+  check(
+    emptyOrder.status === 409 && emptyOrder.data.error?.code === 'EMPTY_CART',
+    'confirmar com o carrinho vazio -> 409',
+  )
+
+  const badProvider = await client.post('/orders', { provider: 'inexistente' })
+  check(badProvider.status === 422, 'provedor de carteira inválido -> 422')
+
+  const storedOrder = await client.get(`/orders/${orderCreated.data.id}`)
+  check(
+    storedOrder.status === 200 && storedOrder.data.id === orderCreated.data.id,
+    'GET /orders/:id devolve o recibo salvo',
+  )
+
+  const missingOrder = await client.get('/orders/nao-existe')
+  check(
+    missingOrder.status === 404 && missingOrder.data.error?.code === 'NOT_FOUND',
+    'pedido inexistente -> 404',
+  )
+
+  resetOrders()
+  const ordersReset = await client.get(`/orders/${DEMO_ORDER_ID}`)
+  check(
+    ordersReset.status === 200 && ordersReset.data.id === DEMO_ORDER_ID,
+    'reset restaura o cenário conhecido dos pedidos',
   )
 
   await server.close()

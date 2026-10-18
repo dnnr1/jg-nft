@@ -192,6 +192,8 @@ interface OrderSummaryProps {
   onConfirm: () => void
   confirmDisabled?: boolean
   validated?: boolean
+  pending?: boolean
+  error?: string | null
   className?: string
 }
 
@@ -202,6 +204,8 @@ export function OrderSummary({
   onConfirm,
   confirmDisabled,
   validated,
+  pending,
+  error,
   className,
 }: OrderSummaryProps) {
   return (
@@ -232,7 +236,15 @@ export function OrderSummary({
         />
       </div>
 
-      {validated ? (
+      {error ? (
+        <p role="alert" className="mt-4 text-tiny text-coral">
+          {error}
+        </p>
+      ) : pending ? (
+        <p role="status" className="mt-4 text-tiny text-text-secondary">
+          Enviando pedido…
+        </p>
+      ) : validated ? (
         <p role="status" className="mt-4 text-tiny text-success">
           Dados revisados. Tudo pronto para enviar o pedido.
         </p>
@@ -241,13 +253,10 @@ export function OrderSummary({
       <button
         type="button"
         onClick={onConfirm}
-        disabled={confirmDisabled}
-        className={cn(
-          buttonVariants(),
-          'text-body-bold mt-6 h-9 w-full rounded-default text-ink',
-        )}
+        disabled={confirmDisabled || pending}
+        className={cn(buttonVariants(), 'mt-6 h-9 w-full rounded-default')}
       >
-        Confirmar compra
+        {pending ? 'Enviando pedido…' : 'Confirmar compra'}
       </button>
     </aside>
   )

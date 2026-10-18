@@ -207,6 +207,21 @@ export function removeCartItem(id: string): Cart {
 }
 
 /**
+ * Remove do carrinho os itens comprados (usado após a confirmação do pedido).
+ * O cupom também é consumido, já que valia para o carrinho anterior.
+ */
+export function removeCartEntries(ids: readonly string[]): Cart {
+  const purchased = new Set(ids)
+  const remaining = state.entries.filter((entry) => !purchased.has(entry.id))
+  if (remaining.length === state.entries.length) return readCart()
+  return commit({
+    entries: remaining,
+    couponCode: null,
+    couponAppliedAt: null,
+  })
+}
+
+/**
  * Adiciona edições de um NFT ao carrinho. Quando o NFT já está no carrinho as
  * quantidades são somadas, nunca ultrapassando a disponibilidade do catálogo.
  */

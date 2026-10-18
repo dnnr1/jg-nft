@@ -24,3 +24,8 @@ export function apiErrorMessage(
   }
   return fallback
 }
+
+/** Status HTTP do erro da API, quando a falha veio de uma resposta. */
+export function apiErrorStatus(error: unknown): number | null {
+  return axios.isAxiosError(error) ? (error.response?.status ?? null) : null
+}

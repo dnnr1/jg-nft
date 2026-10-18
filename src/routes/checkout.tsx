@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { ErrorState } from '@/components/common/error-state'
@@ -18,6 +18,8 @@ import { ConnectedWallets } from '@/modules/checkout/components/connected-wallet
 import { OrderSummary } from '@/modules/checkout/components/order-summary'
 import { WalletProviders } from '@/modules/checkout/components/wallet-providers'
 import { useCollectorForm } from '@/modules/checkout/use-collector-form'
+import { newIdempotencyKey } from '@/modules/orders/api'
+import { useCreateOrder } from '@/modules/orders/mutations'
 import { useUpdateWallet } from '@/modules/wallets/mutations'
 import { walletsQuery } from '@/modules/wallets/queries'
 import { cn } from 'cn'
@@ -35,12 +37,16 @@ function CheckoutPage() {
 
   const form = useCollectorForm()
   const updateWallet = useUpdateWallet()
+  const createOrder = useCreateOrder()
+  const navigate = useNavigate()
 
   const [provider, setProvider] = useState<WalletProviderId | null>(
     DEFAULT_WALLET_PROVIDER,
   )
   const [validated, setValidated] = useState(false)
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null)
+  /** Chave estável da tentativa: reenviar após falha recupera o mesmo pedido. */
+  const idempotencyKey = useRef<string | null>(null)
 
   const wallets = walletsResult.data?.items ?? []
   const connectedWallet = wallets.find((wallet) => wallet.connected) ?? null
@@ -50,6 +56,10 @@ function CheckoutPage() {
         updateWallet.error,
         'Não foi possível atualizar a carteira.',
       )
+    : null
+
+  const submitError = createOrder.isError
+    ? apiErrorMessage(createOrder.error, 'Não foi possível concluir o pedido.')
     : null
 
   function connectWallet(id: string) {
@@ -80,7 +90,7 @@ function CheckoutPage() {
       }
       return
     }
-    setValidated(true)
+    submitOrder()
   }
 
   function confirmWithWallet() {
@@ -95,7 +105,25 @@ function CheckoutPage() {
       setBlockedMessage('Selecione a carteira e a rede.')
       return
     }
+    submitOrder()
+  }
+
+  /** Cria o pedido a partir da cotação atual e abre o recibo confirmado. */
+  function submitOrder() {
+    setBlockedMessage(null)
     setValidated(true)
+
+    const key = idempotencyKey.current ?? newIdempotencyKey()
+    idempotencyKey.current = key
+
+    createOrder.mutate(
+      { provider, idempotencyKey: key },
+      {
+        onSuccess: (order) => {
+          void navigate({ to: '/orders/$id', params: { id: order.id } })
+        },
+      },
+    )
   }
 
   if (cartResult.isPending || walletsResult.isPending) {
@@ -185,6 +213,8 @@ function CheckoutPage() {
           }}
           onConfirm={confirmWithForm}
           validated={validated}
+          pending={createOrder.isPending}
+          error={submitError}
         />
       </div>
 
@@ -232,6 +262,14 @@ function CheckoutPage() {
           <p role="alert" className="text-tiny -mt-4 text-coral">
             {blockedMessage}
           </p>
+        ) : submitError ? (
+          <p role="alert" className="text-tiny -mt-4 text-coral">
+            {submitError}
+          </p>
+        ) : createOrder.isPending ? (
+          <p role="status" className="text-tiny -mt-4 text-text-secondary">
+            Enviando pedido…
+          </p>
         ) : validated ? (
           <p role="status" className="text-tiny -mt-4 text-success">
             Dados revisados. Tudo pronto para enviar o pedido.
@@ -241,12 +279,13 @@ function CheckoutPage() {
         <button
           type="button"
           onClick={confirmWithWallet}
+          disabled={createOrder.isPending}
           className={cn(
             buttonVariants({ variant: 'pill' }),
-            'text-body-bold h-13 w-full rounded-full',
+            'h-13 w-full rounded-full',
           )}
         >
-          Confirmar compra
+          {createOrder.isPending ? 'Enviando pedido…' : 'Confirmar compra'}
         </button>
       </div>
     </div>

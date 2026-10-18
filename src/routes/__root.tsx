@@ -64,6 +64,10 @@ function RootComponent() {
   const isCart = useRouterState({
     select: (state) => state.location.pathname === '/cart',
   })
+  /** O recibo é uma tela isolada, sem a moldura do site. */
+  const isOrderReceipt = useRouterState({
+    select: (state) => state.location.pathname.startsWith('/orders/'),
+  })
   const hasMobileDock = isCatalog
 
   return (
@@ -81,16 +85,18 @@ function RootComponent() {
             className={`mx-auto max-w-[1440px] ${
               isNftDetail
                 ? 'p-0 md:px-6 md:py-6 xl:px-30'
-                : 'px-6 py-10 md:py-6 xl:px-30'
+                : isOrderReceipt
+                  ? 'flex min-h-dvh items-center px-6 py-10 md:py-6 xl:px-30'
+                  : 'px-6 py-10 md:py-6 xl:px-30'
             } ${
               hasMobileDock
                 ? 'pb-[calc(128px+env(safe-area-inset-bottom,0px))] md:pb-6'
                 : ''
             } ${isCart ? 'max-md:pb-[var(--cart-summary-height)]' : ''}`}
           >
-            <SiteHeader divider={isCatalog} />
+            {isOrderReceipt ? null : <SiteHeader divider={isCatalog} />}
             <Outlet />
-            <SiteFooter />
+            {isOrderReceipt ? null : <SiteFooter />}
           </main>
           {hasMobileDock ? <MobileTabBar /> : null}
         </RootDocument>

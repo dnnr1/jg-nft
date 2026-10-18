@@ -10,6 +10,10 @@ import {
   type CatalogTab,
 } from '@/modules/catalog/search-params'
 import type { Nft } from '@/modules/catalog/types'
+import {
+  WALLET_PROVIDER_IDS,
+  type WalletProviderId,
+} from '@/modules/checkout/constants'
 
 import {
   CartError,
@@ -21,6 +25,7 @@ import {
   updateCartItemQuantity,
 } from './cart-store'
 import { nftFixtures } from './fixtures/nfts'
+import { OrderError, createOrder, readOrder } from './order-store'
 import {
   WalletError,
   readWallets,
@@ -85,6 +90,35 @@ function walletErrorResponse(error: WalletError) {
 function asWalletError(error: unknown): WalletError {
   if (error instanceof WalletError) return error
   throw error
+}
+
+function orderErrorResponse(error: OrderError) {
+  return HttpResponse.json(
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        requestId: 'mock-orders',
+      },
+    },
+    { status: error.status },
+  )
+}
+
+function asOrderError(error: unknown): OrderError {
+  if (error instanceof OrderError) return error
+  throw error
+}
+
+function parseProvider(value: unknown): WalletProviderId | null {
+  if (value === undefined || value === null || value === '') return null
+  if (
+    typeof value === 'string' &&
+    (WALLET_PROVIDER_IDS as readonly string[]).includes(value)
+  ) {
+    return value as WalletProviderId
+  }
+  throw new OrderError(422, 'VALIDATION_ERROR', 'Provedor de carteira inválido')
 }
 
 function parseBoolean(value: unknown): boolean | undefined {
@@ -499,5 +533,43 @@ export const handlers = [
     } catch (error) {
       return walletErrorResponse(asWalletError(error))
     }
+  }),
+
+  http.post('*/api/orders', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = await readJsonBody(request)
+    const idempotencyKey =
+      request.headers.get('Idempotency-Key') ??
+      (typeof body.idempotencyKey === 'string' ? body.idempotencyKey : null)
+
+    try {
+      const order = createOrder({
+        provider: parseProvider(body.provider),
+        idempotencyKey,
+      })
+      return HttpResponse.json(order, { status: 201 })
+    } catch (error) {
+      return orderErrorResponse(asOrderError(error))
+    }
+  }),
+
+  http.get('*/api/orders/:id', async ({ params }) => {
+    await sleep(LATENCY_MS)
+
+    const order = readOrder(String(params.id))
+    if (!order) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Pedido não encontrado',
+            requestId: 'mock-orders',
+          },
+        },
+        { status: 404 },
+      )
+    }
+    return HttpResponse.json(order)
   }),
 ]
