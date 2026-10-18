@@ -68,6 +68,15 @@ function RootComponent() {
   const isOrderReceipt = useRouterState({
     select: (state) => state.location.pathname.startsWith('/orders/'),
   })
+  /**
+   * A área do colecionador (perfil e carteiras) usa a moldura do app: mantém o
+   * cabeçalho, mas fecha a tela sem o rodapé do site.
+   */
+  const isAccountArea = useRouterState({
+    select: (state) =>
+      state.location.pathname === '/profile' ||
+      state.location.pathname === '/wallets',
+  })
   const hasMobileDock = isCatalog
 
   return (
@@ -96,7 +105,7 @@ function RootComponent() {
           >
             {isOrderReceipt ? null : <SiteHeader divider={isCatalog} />}
             <Outlet />
-            {isOrderReceipt ? null : <SiteFooter />}
+            {isOrderReceipt || isAccountArea ? null : <SiteFooter />}
           </main>
           {hasMobileDock ? <MobileTabBar /> : null}
         </RootDocument>
