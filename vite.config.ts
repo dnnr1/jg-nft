@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import netlify from "@netlify/vite-plugin-tanstack-start";
+import { nitro } from "nitro/vite";
 
 export default defineConfig({
   server: {
@@ -11,5 +12,5 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [tailwindcss(), tanstackStart(), viteReact(), netlify()],
+  plugins: [tailwindcss(), tanstackStart(), viteReact(), netlify(), nitro()],
 });
