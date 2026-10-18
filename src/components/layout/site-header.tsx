@@ -188,13 +188,14 @@ export function SiteHeader({ divider }: { divider: boolean }) {
         <CartLink />
         {user ? (
           <div className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
+            <Link
+              to="/profile"
+              aria-label="Meu perfil"
               title={user.name}
               className="grid size-9 shrink-0 place-content-center rounded-full bg-brand-gradient text-caption-bold text-ink"
             >
               {nameInitials(user.name)}
-            </span>
+            </Link>
             <Button
               variant="ghost"
               size="sm"
