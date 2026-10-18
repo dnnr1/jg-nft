@@ -1,15 +1,26 @@
-import { Link, useRouterState } from '@tanstack/react-router'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { Heart, ScanLine, ShoppingCart, UserRound } from 'lucide-react'
 
+import { useAuth } from '@/modules/auth/auth-context'
 import { useCartCount } from '@/modules/cart/use-cart-count'
 
 export function MobileTabBar() {
+  const navigate = useNavigate()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
   const onHome = pathname === '/'
   const onCart = pathname === '/cart'
   const cartCount = useCartCount()
+  const { user, openAuthDialog } = useAuth()
+
+  function goToProfileOrAuth() {
+    if (user) {
+      void navigate({ to: '/profile' })
+    } else {
+      openAuthDialog('login')
+    }
+  }
 
   return (
     <nav aria-label="Navegação mobile" className="dock md:hidden">
@@ -31,9 +42,14 @@ export function MobileTabBar() {
         >
           <span className="dock-home-icon" aria-hidden="true" />
         </Link>
-        <Link to="/login" aria-label="Favoritos" className="dock-item">
+        <button
+          type="button"
+          aria-label="Favoritos"
+          className="dock-item"
+          onClick={goToProfileOrAuth}
+        >
           <Heart aria-hidden="true" fill="currentColor" />
-        </Link>
+        </button>
         <Link to="/wallets" aria-label="Carteiras" className="dock-fab">
           <ScanLine aria-hidden="true" />
         </Link>
@@ -57,9 +73,14 @@ export function MobileTabBar() {
             ) : null}
           </span>
         </Link>
-        <Link to="/login" aria-label="Perfil" className="dock-item">
+        <button
+          type="button"
+          aria-label="Perfil"
+          className="dock-item"
+          onClick={goToProfileOrAuth}
+        >
           <UserRound aria-hidden="true" fill="currentColor" />
-        </Link>
+        </button>
       </div>
     </nav>
   )
