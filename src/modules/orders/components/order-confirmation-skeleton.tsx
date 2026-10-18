@@ -48,10 +48,10 @@ export function OrderConfirmationSkeleton() {
             <div className="shimmer h-3.5 w-32 rounded-sm bg-surface-raised" />
           </div>
 
-          <div className="shimmer mt-4 h-9 w-full rounded-default bg-surface-raised" />
+          <div className="shimmer mx-auto mt-4 h-9 w-40 rounded-default bg-surface-raised" />
         </div>
 
-        <div className="mt-5 h-1 w-full bg-primary" />
+        <div className="mt-8 h-1 w-full bg-primary" />
       </div>
     </div>
   )

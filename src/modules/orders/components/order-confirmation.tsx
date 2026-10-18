@@ -133,7 +133,7 @@ export function OrderConfirmation({ order }: { order: Order }) {
         to="/"
         hash="catalogo"
         aria-label="Fechar confirmação"
-        className="absolute top-2 right-2 z-10 inline-flex size-8 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-surface-raised"
+        className="absolute top-2 right-2 z-10 inline-flex size-8 items-center justify-center rounded-sm text-primary transition-colors hover:bg-primary/10"
       >
         <X className="size-4" aria-hidden="true" />
       </Link>
@@ -206,7 +206,7 @@ export function OrderConfirmation({ order }: { order: Order }) {
               href={order.explorerUrl}
               target="_blank"
               rel="noreferrer"
-              className={cn(buttonVariants(), 'mt-4 h-9 w-full')}
+              className={cn(buttonVariants(), 'mx-auto mt-4 flex h-9 w-fit')}
             >
               {explorerActionLabel(order.network)}
               <span className="sr-only"> (abre em uma nova aba)</span>
@@ -217,7 +217,7 @@ export function OrderConfirmation({ order }: { order: Order }) {
         <StatusMessage order={order} />
       )}
 
-      <div aria-hidden="true" className="mt-5 h-1 w-full bg-primary" />
+      <div aria-hidden="true" className="mt-8 h-1 w-full bg-primary" />
     </article>
   )
 }
