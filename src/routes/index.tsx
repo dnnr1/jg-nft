@@ -321,7 +321,7 @@ function HeroCarousel() {
                       {slide.desktopTitle}
                     </span>
                   </h2>
-                  <p className="text-body-regular text-text-secondary max-w-139.25 md:mb-6 lg:mb-18">
+                  <p className="text-body-regular text-text-secondary max-w-139.25 md:mb-5 lg:mb-8">
                     <span className="md:hidden">{slide.description}</span>
                     <span className="hidden md:inline">
                       {slide.desktopDescription}
@@ -331,7 +331,7 @@ function HeroCarousel() {
                     href="#catalogo"
                     className={cn(
                       buttonVariants(),
-                      "hidden ps-7 pe-9 md:inline-flex",
+                      "hidden px-8 md:inline-flex",
                     )}
                   >
                     EXPLORAR
