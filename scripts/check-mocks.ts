@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node'
 
 import { resetCart } from '../src/mocks/cart-store'
 import { handlers } from '../src/mocks/handlers'
+import { resetWallets } from '../src/mocks/wallet-store'
 
 interface MockNft {
   id: string
@@ -365,6 +366,73 @@ async function main(): Promise<void> {
     restored.data.items.length === 3 &&
       restored.data.summary?.total === '26.846',
     'reset restaura o cenário conhecido',
+  )
+
+  console.log('\nContrato /api/wallets:')
+
+  resetWallets()
+  const wallets = await client.get('/wallets')
+  check(
+    wallets.status === 200 && wallets.data.items.length === 2,
+    'status 200 com duas carteiras cadastradas',
+  )
+  check(
+    wallets.data.items.some(
+      (wallet: { id: string; ens?: string }) =>
+        wallet.id === 'wallet-reserva' && wallet.ens === 'nova.kurio.eth',
+    ),
+    'carteira Reserva expõe o ENS nova.kurio.eth',
+  )
+  check(
+    wallets.data.items.filter((wallet: { connected: boolean }) => wallet.connected)
+      .length === 1,
+    'apenas uma carteira conectada no cenário inicial',
+  )
+
+  const connected = await client.patch('/wallets/wallet-principal', {
+    connected: true,
+  })
+  check(
+    connected.status === 200 &&
+      connected.data.items.find(
+        (wallet: { id: string }) => wallet.id === 'wallet-principal',
+      )?.connected === true &&
+      connected.data.items.find(
+        (wallet: { id: string }) => wallet.id === 'wallet-reserva',
+      )?.connected === false,
+    'PATCH connected move a conexão para a carteira escolhida',
+  )
+
+  const primary = await client.patch('/wallets/wallet-reserva', {
+    primary: true,
+  })
+  check(
+    primary.data.items.filter((wallet: { primary: boolean }) => wallet.primary)
+      .length === 1 &&
+      primary.data.items.find(
+        (wallet: { id: string }) => wallet.id === 'wallet-reserva',
+      )?.primary === true,
+    'PATCH primary mantém apenas uma carteira principal',
+  )
+
+  const badWallet = await client.patch('/wallets/nao-existe', {
+    connected: true,
+  })
+  check(
+    badWallet.status === 404 && badWallet.data.error?.code === 'NOT_FOUND',
+    'carteira inexistente -> 404',
+  )
+
+  const badWalletBody = await client.patch('/wallets/wallet-reserva', {})
+  check(badWalletBody.status === 422, 'PATCH sem campos -> 422')
+
+  resetWallets()
+  const walletsReset = await client.get('/wallets')
+  check(
+    walletsReset.data.items.find(
+      (wallet: { id: string }) => wallet.id === 'wallet-reserva',
+    )?.connected === true,
+    'reset das carteiras restaura o cenário conhecido',
   )
 
   await server.close()

@@ -21,6 +21,11 @@ import {
   updateCartItemQuantity,
 } from './cart-store'
 import { nftFixtures } from './fixtures/nfts'
+import {
+  WalletError,
+  readWallets,
+  updateWallet as updateWalletState,
+} from './wallet-store'
 
 const LATENCY_MS = 350
 
@@ -62,6 +67,34 @@ function cartErrorResponse(error: CartError) {
 function asCartError(error: unknown): CartError {
   if (error instanceof CartError) return error
   throw error
+}
+
+function walletErrorResponse(error: WalletError) {
+  return HttpResponse.json(
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        requestId: 'mock-wallets',
+      },
+    },
+    { status: error.status },
+  )
+}
+
+function asWalletError(error: unknown): WalletError {
+  if (error instanceof WalletError) return error
+  throw error
+}
+
+function parseBoolean(value: unknown): boolean | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === 'boolean') return value
+  throw new WalletError(
+    422,
+    'VALIDATION_ERROR',
+    'Os campos "primary" e "connected" devem ser booleanos',
+  )
 }
 
 function parseQuantity(value: unknown): number | null {
@@ -340,5 +373,38 @@ export const handlers = [
   http.delete('*/api/cart/coupon', async () => {
     await sleep(LATENCY_MS)
     return HttpResponse.json(removeCoupon())
+  }),
+
+  http.get('*/api/wallets', async () => {
+    await sleep(LATENCY_MS)
+    return HttpResponse.json(readWallets())
+  }),
+
+  http.patch('*/api/wallets/:id', async ({ params, request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = (await request.json().catch(() => null)) as
+      | { primary?: unknown; connected?: unknown }
+      | null
+    if (body === null) {
+      return validationError('O corpo deve conter "primary" e/ou "connected"')
+    }
+
+    try {
+      const primary = parseBoolean(body.primary)
+      const connected = parseBoolean(body.connected)
+      if (primary === undefined && connected === undefined) {
+        throw new WalletError(
+          422,
+          'VALIDATION_ERROR',
+          'Informe "primary" e/ou "connected"',
+        )
+      }
+      return HttpResponse.json(
+        updateWalletState(String(params.id), { primary, connected }),
+      )
+    } catch (error) {
+      return walletErrorResponse(asWalletError(error))
+    }
   }),
 ]

@@ -147,7 +147,11 @@ export function SiteHeader({ divider }: { divider: boolean }) {
   const isEntryActive = (label: string): boolean => {
     if (label === 'Início') return pathname === '/'
     if (label === 'Mercado')
-      return pathname === '/cart' || pathname.startsWith('/nfts/')
+      return (
+        pathname === '/cart' ||
+        pathname === '/checkout' ||
+        pathname.startsWith('/nfts/')
+      )
     return false
   }
 
