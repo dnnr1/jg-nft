@@ -142,6 +142,7 @@ export function OrderConfirmation({ order }: { order: Order }) {
         {confirmed ? <ThankYouBadge className="mx-auto h-11 w-12" /> : null}
         <h1
           id="order-confirmation-title"
+          data-testid="order-status"
           className="text-body-lg-bold mt-3 text-foreground"
         >
           {STATUS_HEADINGS[order.status]}

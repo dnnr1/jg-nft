@@ -39,6 +39,11 @@ export const orderSchema = z.object({
   summary: orderSummarySchema,
   /** Motivo da recusa, preenchido apenas em pedidos recusados. */
   failureReason: z.string().nullable(),
+  /**
+   * Versão monotônica do pedido. Cresce a cada mudança de situação e é usada
+   * para descartar eventos `order.updated` duplicados ou fora de ordem.
+   */
+  version: z.number().int().min(1),
 })
 
 export type OrderStatus = z.infer<typeof orderStatusSchema>

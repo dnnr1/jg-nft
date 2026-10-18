@@ -32,14 +32,31 @@ import {
   readCart,
   removeCartItem,
   removeCoupon,
+  resetCart,
   updateCartItemQuantity,
 } from './cart-store'
-import { nftFixtures } from './fixtures/nfts'
-import { OrderError, createOrder, readOrder } from './order-store'
+import {
+  readIndexedNfts,
+  readNft,
+  readNfts,
+  resetNfts,
+} from './nft-store'
+import {
+  OrderError,
+  createOrder,
+  readOrder,
+  resetOrders,
+} from './order-store'
+import {
+  resetScenarioState,
+  shouldFailOrderCreation,
+} from './scenarios'
+import { socketHandlers } from './socket'
 import {
   WalletError,
   createWallet as createWalletState,
   readWallets,
+  resetWallets,
   updateWallet as updateWalletState,
   type WalletPatch,
 } from './wallet-store'
@@ -191,6 +208,17 @@ function requireAccountId(request: Request): string {
   return token
 }
 
+/**
+ * Sessão da requisição quando houver. O checkout exige login, mas o pedido
+ * também é aceito de um visitante (o carrinho é dele): nesse caso não há dono
+ * para rotear eventos privados.
+ */
+function optionalAccountId(request: Request): string | null {
+  const header = request.headers.get('authorization') ?? ''
+  const token = header.replace(/^Bearer\s+/i, '').trim()
+  return token && hasAccount(token) ? token : null
+}
+
 function readJsonBody(request: Request): Promise<Record<string, unknown>> {
   return request
     .json()
@@ -203,28 +231,26 @@ function readJsonBody(request: Request): Promise<Record<string, unknown>> {
 const TRENDING_MIN_FAVORITES = 180
 const NEW_RELEASE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
-const newestCreatedAt = (): string =>
-  nftFixtures.reduce(
+const newestCreatedAt = (): string => {
+  const nfts = readNfts()
+  return nfts.reduce(
     (newest, nft) => (nft.createdAt > newest ? nft.createdAt : newest),
-    nftFixtures[0]?.createdAt ?? '',
+    nfts[0]?.createdAt ?? '',
   )
+}
 
 type IndexedNft = Nft & { index: number }
 
-const INDEXED_FIXTURES: IndexedNft[] = nftFixtures.map((nft, index) => ({
-  ...nft,
-  index,
-}))
-
 function buildFacets() {
+  const nfts = readNfts()
   return {
     categories: CATEGORIES.map((id) => ({
       id,
-      count: nftFixtures.filter((nft) => nft.categories.includes(id)).length,
+      count: nfts.filter((nft) => nft.categories.includes(id)).length,
     })),
     networks: CATALOG_NETWORKS.map((id) => ({
       id,
-      count: nftFixtures.filter((nft) => nft.network === id).length,
+      count: nfts.filter((nft) => nft.network === id).length,
     })),
   }
 }
@@ -306,7 +332,7 @@ export const handlers = [
     const categories = params.getAll('categories')
     const networks = networksParam as CatalogNetwork[]
 
-    let items: IndexedNft[] = INDEXED_FIXTURES
+    let items: IndexedNft[] = readIndexedNfts()
 
     if (tab === 'novos') {
       const windowStart = new Date(newestCreatedAt()).getTime() - NEW_RELEASE_WINDOW_MS
@@ -372,7 +398,7 @@ export const handlers = [
   http.get('*/api/nfts/:id', async ({ params }) => {
     await sleep(LATENCY_MS)
 
-    const nft = nftFixtures.find((item) => item.id === params.id)
+    const nft = readNft(String(params.id))
     if (!nft) {
       return HttpResponse.json(
         {
@@ -647,12 +673,23 @@ export const handlers = [
     const idempotencyKey =
       request.headers.get('Idempotency-Key') ??
       (typeof body.idempotencyKey === 'string' ? body.idempotencyKey : null)
+    const quoteEtag =
+      request.headers.get('If-Match') ??
+      (typeof body.quoteEtag === 'string' ? body.quoteEtag : null)
 
     try {
       const order = createOrder({
         provider: parseProvider(body.provider),
         idempotencyKey,
+        ownerId: optionalAccountId(request),
+        quoteEtag,
       })
+      // Cenário `order-timeout`: o pedido existe no "servidor", mas a resposta
+      // não chega ao cliente. A retomada com a mesma chave recupera este pedido
+      // em vez de criar uma segunda compra.
+      if (shouldFailOrderCreation(idempotencyKey)) {
+        return HttpResponse.error()
+      }
       return HttpResponse.json(order, { status: 201 })
     } catch (error) {
       return orderErrorResponse(asOrderError(error))
@@ -677,4 +714,27 @@ export const handlers = [
     }
     return HttpResponse.json(order)
   }),
+
+  /**
+   * Redefine o estado dos mocks para um teste/demonstração começar do zero.
+   *
+   * Só está disponível em desenvolvimento (não expõe isso em produção). É o
+   * que dá isolamento entre testes E2E que compartilham o mesmo servidor de
+   * desenvolvimento: carrinho, catálogo, pedidos, carteiras e cenários voltam
+   * ao estado de semente antes de cada caso.
+   */
+  http.post('*/__mock-reset', async () => {
+    if (import.meta.env?.DEV !== true) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    resetScenarioState()
+    resetNfts()
+    resetCart()
+    resetOrders()
+    resetWallets()
+    return HttpResponse.json({ ok: true })
+  }),
+
+  // Tempo real: Socket.IO no transporte WebSocket (ver ./socket.ts).
+  ...socketHandlers,
 ]

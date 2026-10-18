@@ -10,6 +10,12 @@ export interface CreateOrderPayload {
    * mesmo pedido; usar a chave com outro conteúdo gera conflito.
    */
   idempotencyKey: string
+  /**
+   * ETag da cotação que o usuário está confirmando (`If-Match`). Se a cotação
+   * do carrinho já mudou, a API responde `QUOTE_CHANGED` e o usuário precisa
+   * revisar o novo total antes de confirmar de novo.
+   */
+  quoteEtag: string
 }
 
 /** Gera a chave de idempotência de uma tentativa de compra. */
@@ -22,7 +28,10 @@ export function newIdempotencyKey(): string {
 
 export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
   const response = await apiClient.post<Order>('/orders', payload, {
-    headers: { 'Idempotency-Key': payload.idempotencyKey },
+    headers: {
+      'Idempotency-Key': payload.idempotencyKey,
+      'If-Match': payload.quoteEtag,
+    },
   })
   return orderSchema.parse(response.data)
 }

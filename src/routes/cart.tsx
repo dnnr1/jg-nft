@@ -17,6 +17,7 @@ import { CartItems } from '@/modules/cart/components/cart-items'
 import { CartRelated } from '@/modules/cart/components/cart-related'
 import { CartSkeleton } from '@/modules/cart/components/cart-skeleton'
 import { CartSummaryPanel } from '@/modules/cart/components/cart-summary'
+import { QuoteChangesNotice } from '@/modules/cart/components/quote-changes-notice'
 import {
   useApplyCartCoupon,
   useRemoveCartCoupon,
@@ -24,6 +25,7 @@ import {
   useUpdateCartItemQuantity,
 } from '@/modules/cart/mutations'
 import { cartQuery } from '@/modules/cart/queries'
+import { useQuoteChanges } from '@/modules/cart/use-quote-changes'
 
 export const Route = createFileRoute('/cart')({
   head: () => ({
@@ -51,6 +53,9 @@ function CartPage() {
   const removeMutation = useRemoveCartItem()
   const couponMutation = useApplyCartCoupon()
   const removeCouponMutation = useRemoveCartCoupon()
+
+  // Mudanças de cotação recebidas em tempo real (preço/disponibilidade).
+  const quoteChanges = useQuoteChanges(cartResult.data)
 
   const changeQuantity = useCallback(
     (id: string, quantity: number) => {
@@ -120,6 +125,11 @@ function CartPage() {
           {mutationError}
         </p>
       ) : null}
+
+      <QuoteChangesNotice
+        changes={quoteChanges.changes}
+        onAcknowledge={quoteChanges.acknowledge}
+      />
 
       <div className="flex flex-col gap-5 md:gap-0">
         <CartPageHeader />

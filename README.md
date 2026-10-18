@@ -281,3 +281,12 @@ Documente os contratos REST e eventos, a política de sessão, o estado do carri
 Disponibilize comandos para desenvolvimento com mocks, build, preview, verificação de tipos, lint, testes Playwright e auditoria Lighthouse.
 
 A entrega deve executar a partir de um checkout limpo, sem depender de serviços privados ou do backend de produção.
+
+## Solução — notas de execução
+
+- **Credenciais de demonstração:** `test123@gmail.com` / `12345678` (pré-preenchidas no diálogo de login).
+- **Variáveis de ambiente:** `VITE_API_BASE_URL`, `VITE_SOCKET_URL`, `VITE_ENABLE_MOCKS` (`.env` e `.env.example`); para cenários de tempo real, `VITE_MOCK_SCENARIO` (ex.: `nft-price-change,order-refused`) e `VITE_MOCK_SCENARIO_DELAY_MS`.
+- **Comandos:** `dev`, `build`, `start`, `typecheck`, `lint`, `check:mocks` (contratos REST), `check:realtime` (aplicador, `QUOTE_CHANGED` e idempotência), `test:e2e` (Playwright, desktop e mobile).
+- **Contratos REST, eventos Socket.IO, política de sessão, estado do carrinho, estratégia de cache e reconciliação REST ↔ Socket.IO:** documentados em `ARCHITECTURE.md`, incluindo a limitação de entrega "melhor esforço" dos eventos simulados.
+- **Pendentes de conformidade (checklist):** veja `todo.md` (itens em aberto: Favoritos, deploy público com mocks, Lighthouse e isolamento por usuário no logout).
+

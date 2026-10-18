@@ -32,6 +32,11 @@ export const cartSchema = z.object({
   summary: cartSummarySchema,
   version: z.number().int(),
   updatedAt: z.string(),
+  /**
+   * ETag da cotação exibida. O cliente o devolve em `If-Match` ao confirmar a
+   * compra, e a API recusa uma cotação desatualizada com `QUOTE_CHANGED`.
+   */
+  etag: z.string(),
 })
 
 export type CartItem = z.infer<typeof cartItemSchema>

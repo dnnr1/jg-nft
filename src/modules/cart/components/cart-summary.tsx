@@ -206,7 +206,10 @@ export function CartSummaryPanel({
         </div>
         <div className="mt-3 flex items-baseline justify-between gap-4 md:mt-5">
           <dt className="text-body-lg-bold text-foreground">Total</dt>
-          <dd className="text-body-lg-bold text-text-accent">
+          <dd
+            data-testid="cart-summary-total"
+            className="text-body-lg-bold text-text-accent"
+          >
             {summary.total} ETH
           </dd>
         </div>

@@ -18,6 +18,7 @@ import { SiteHeader } from '@/components/layout/site-header'
 import { ToastProvider } from '@/components/common/toast'
 import { AuthProvider } from '@/modules/auth/auth-context'
 import { AuthDialog } from '@/modules/auth/components/auth-dialog'
+import { RealtimeSync } from '@/modules/realtime/realtime-sync'
 import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -110,6 +111,7 @@ function RootComponent() {
           {hasMobileDock ? <MobileTabBar /> : null}
         </RootDocument>
         <AuthDialog />
+        <RealtimeSync />
       </AuthProvider>
     </ToastProvider>
   )

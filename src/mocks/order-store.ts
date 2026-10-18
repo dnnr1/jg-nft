@@ -7,7 +7,9 @@ import type { WalletProviderId } from '@/modules/checkout/constants'
 import type { Order, OrderItem } from '@/modules/orders/types'
 
 import { readCart, removeCartEntries } from './cart-store'
-import { nftFixtures } from './fixtures/nfts'
+import { readNft } from './nft-store'
+import { publishOrderUpdated } from './realtime-bus'
+import { hasScenario, scenarioDelayMs } from './scenarios'
 
 const STORAGE_KEY = 'kurio.orders.v1'
 
@@ -44,6 +46,8 @@ interface IdempotencyRecord {
 interface OrderState {
   orders: Order[]
   idempotency: IdempotencyRecord[]
+  /** Sessão dona de cada pedido: usada para entregar `order.updated` só ao dono. */
+  owners: Record<string, string>
 }
 
 export class OrderError extends Error {
@@ -80,7 +84,7 @@ function snapshotItems(
   entries: ReadonlyArray<{ id: string; quantity: number }>,
 ): OrderItem[] {
   return entries.flatMap(({ id, quantity }) => {
-    const nft = nftFixtures.find((item) => item.id === id)
+    const nft = readNft(id)
     if (!nft) return []
     return [
       {
@@ -110,11 +114,12 @@ function demoOrder(): Order {
     items,
     summary: computeCartSummary(items, 0),
     failureReason: null,
+    version: 1,
   }
 }
 
 function seedState(): OrderState {
-  return { orders: [demoOrder()], idempotency: [] }
+  return { orders: [demoOrder()], idempotency: [], owners: {} }
 }
 
 function storage(): Storage | null {
@@ -138,6 +143,10 @@ function loadState(): OrderState {
       idempotency: Array.isArray(parsed.idempotency)
         ? (parsed.idempotency as IdempotencyRecord[])
         : [],
+      owners:
+        parsed.owners && typeof parsed.owners === 'object'
+          ? (parsed.owners as Record<string, string>)
+          : {},
     }
   } catch {
     return seedState()
@@ -160,9 +169,86 @@ export function readOrder(id: string): Order | null {
   return state.orders.find((order) => order.id === id) ?? null
 }
 
+/** Sessão dona do pedido, quando criado por um usuário autenticado. */
+export function readOrderOwner(id: string): string | null {
+  return state.owners[id] ?? null
+}
+
 export interface CreateOrderInput {
   provider: WalletProviderId | null
   idempotencyKey: string | null
+  /** Sessão que está comprando (token da sessão simulada). */
+  ownerId?: string | null
+  /**
+   * ETag da cotação revisada (`If-Match`). Quando informado e diferente da
+   * cotação atual, o pedido é recusado com `QUOTE_CHANGED`, o que impede fechar
+   * uma compra com preço, cupom ou disponibilidade desatualizados.
+   */
+  quoteEtag?: string | null
+}
+
+/** Motivo exibido no recibo quando o pagamento é recusado. */
+const REFUSAL_REASON = 'Pagamento recusado pela carteira escolhida'
+
+/**
+ * Situação inicial do pedido. Sem cenário ativo o pagamento é confirmado na
+ * hora; com `order-pending`/`order-refused` o pedido nasce pendente para que a
+ * transição chegue pelo evento `order.updated`.
+ */
+function initialStatus(): Order['status'] {
+  return hasScenario('order-refused') || hasScenario('order-pending')
+    ? 'pending'
+    : 'confirmed'
+}
+
+/** Agenda a transição do cenário, publicando `order.updated` ao concluir. */
+function scheduleScenarioResolution(orderId: string): void {
+  const target: Order['status'] | null = hasScenario('order-refused')
+    ? 'refused'
+    : hasScenario('order-pending')
+      ? 'confirmed'
+      : null
+  if (!target) return
+
+  const timer = setTimeout(() => {
+    updateOrderStatus(orderId, target)
+  }, scenarioDelayMs())
+
+  // Em Node (verificações de contrato) o timer não deve segurar o processo.
+  ;(timer as unknown as { unref?: () => void }).unref?.()
+}
+
+/**
+ * Muda a situação de um pedido pendente e publica `order.updated`.
+ * Estados finais (confirmado/recusado) são terminais e não regridem.
+ */
+export function updateOrderStatus(
+  id: string,
+  status: Order['status'],
+  failureReason: string | null = status === 'refused' ? REFUSAL_REASON : null,
+): Order | null {
+  const current = readOrder(id)
+  if (!current || current.status !== 'pending' || status === 'pending') {
+    return current
+  }
+
+  const next: Order = {
+    ...current,
+    status,
+    failureReason,
+    version: current.version + 1,
+  }
+
+  state = {
+    ...state,
+    orders: state.orders.map((order) => (order.id === id ? next : order)),
+  }
+  persist()
+
+  const owner = readOrderOwner(id)
+  if (owner) publishOrderUpdated(next, owner)
+
+  return next
 }
 
 /**
@@ -191,6 +277,17 @@ export function createOrder(input: CreateOrderInput): Order {
   }
 
   const cart = readCart()
+
+  // Revalidação da cotação: a chave de idempotência é checada antes, para que
+  // uma nova tentativa ainda recupere o pedido já criado.
+  if (input.quoteEtag && input.quoteEtag !== cart.etag) {
+    throw new OrderError(
+      409,
+      'QUOTE_CHANGED',
+      'A cotação do carrinho mudou desde a última revisão. Revise o novo total e confirme novamente',
+    )
+  }
+
   if (cart.items.length === 0) {
     throw new OrderError(
       409,
@@ -203,9 +300,10 @@ export function createOrder(input: CreateOrderInput): Order {
     cart.items.map((item) => ({ id: item.id, quantity: item.quantity })),
   )
   const transactionId = randomTransactionId()
+  const status = initialStatus()
   const order: Order = {
     id: `ord_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-    status: 'confirmed',
+    status,
     transactionId,
     createdAt: new Date().toISOString(),
     network: DEFAULT_NETWORK,
@@ -215,6 +313,7 @@ export function createOrder(input: CreateOrderInput): Order {
     items,
     summary: computeCartSummary(items, 0),
     failureReason: null,
+    version: 1,
   }
 
   state = {
@@ -225,10 +324,19 @@ export function createOrder(input: CreateOrderInput): Order {
           { key: input.idempotencyKey, fingerprint, orderId: order.id },
         ]
       : state.idempotency,
+    owners: input.ownerId
+      ? { ...state.owners, [order.id]: input.ownerId }
+      : state.owners,
   }
   persist()
 
   removeCartEntries(cart.items.map((item) => item.id))
+
+  // O pedido pendente só é resolvido depois: a resposta REST devolve a situação
+  // pendente e a confirmação/recusa chega pelo canal de tempo real.
+  if (status === 'pending') {
+    scheduleScenarioResolution(order.id)
+  }
 
   return order
 }

@@ -18,6 +18,7 @@ export function useRequireSession(fallbackTo: FallbackRoute = '/') {
   const { user, isReady, openAuthDialog } = useAuth()
   const navigate = useNavigate()
   const authenticatedRef = useRef(false)
+  const notifiedRef = useRef(false)
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -28,6 +29,14 @@ export function useRequireSession(fallbackTo: FallbackRoute = '/') {
       return
     }
     if (!isReady) return
+
+    // A saída acontece uma única vez por visita à rota. Sem esta trava, a
+    // navegação para a origem do fluxo reexecuta o efeito (o componente segue
+    // montado por um instante) e a intenção de retomada seria sobrescrita pela
+    // rota de origem — `/checkout` viraria `/cart` e o login devolveria o
+    // visitante ao carrinho.
+    if (notifiedRef.current) return
+    notifiedRef.current = true
 
     if (!authenticatedRef.current) {
       rememberAfterLogin(pathname)

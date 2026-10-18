@@ -177,7 +177,10 @@ function OrderTotals({ cart }: { cart: Cart }) {
       </div>
       <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-border pt-3">
         <dt className="text-body-lg-bold text-foreground">Total</dt>
-        <dd className="text-body-lg-bold text-text-accent">
+        <dd
+          data-testid="checkout-total"
+          className="text-body-lg-bold text-text-accent"
+        >
           {summary.total} ETH
         </dd>
       </div>

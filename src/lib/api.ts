@@ -3,8 +3,18 @@ import { z } from 'zod'
 
 import { readSessionToken } from '@/modules/auth/session'
 
+/** URL base da API simulada. Em desenvolvimento o Vite injeta
+ * `import.meta.env` no módulo; no Node (verificações de contrato com tsx)
+ * a propriedade não existe, então `/api` é o fallback. */
+function apiBaseUrl(): string {
+  return (import.meta.env as
+    | Record<string, string | undefined>
+    | undefined
+  )?.VITE_API_BASE_URL ?? '/api'
+}
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: apiBaseUrl(),
   timeout: 15_000,
 })
 

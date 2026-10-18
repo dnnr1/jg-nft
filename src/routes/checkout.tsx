@@ -4,9 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 
 import { ErrorState } from '@/components/common/error-state'
 import { buttonVariants } from '@/components/ui/button'
-import { apiErrorMessage } from '@/lib/api'
+import { apiErrorCode, apiErrorMessage } from '@/lib/api'
 import { useRequireSession } from '@/modules/auth/use-require-session'
 import { cartQuery } from '@/modules/cart/queries'
+import { QuoteChangesNotice } from '@/modules/cart/components/quote-changes-notice'
+import { QUOTE_CHANGED_CODE } from '@/modules/cart/quote'
+import { useQuoteChanges } from '@/modules/cart/use-quote-changes'
 import {
   DEFAULT_WALLET_PROVIDER,
   collectorFieldId,
@@ -53,6 +56,11 @@ function CheckoutPage() {
   )
   const [validated, setValidated] = useState(false)
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null)
+  /**
+   * Mudanças de cotação recebidas em tempo real. Elas nunca passam em silêncio:
+   * o resumo mostra os novos valores e a confirmação volta a ser exigida.
+   */
+  const quoteChanges = useQuoteChanges(cartResult.data)
   /** Chave estável da tentativa: reenviar após falha recupera o mesmo pedido. */
   const idempotencyKey = useRef<string | null>(null)
 
@@ -144,11 +152,22 @@ function CheckoutPage() {
     const key = idempotencyKey.current ?? newIdempotencyKey()
     idempotencyKey.current = key
 
+    // A confirmação vale para a cotação que está na tela agora: o `If-Match`
+    // carrega o ETag dela e a API recusa (`QUOTE_CHANGED`) se o carrinho já
+    // tiver mudado antes do pedido chegar.
     createOrder.mutate(
-      { provider, idempotencyKey: key },
+      { provider, idempotencyKey: key, quoteEtag: cartResult.data?.etag ?? '' },
       {
         onSuccess: (order) => {
+          quoteChanges.acknowledge()
           void navigate({ to: '/orders/$id', params: { id: order.id } })
+        },
+        onError: (error) => {
+          // Cotação desatualizada: recarrega o carrinho para que o novo total
+          // apareça e o usuário confirme de novo.
+          if (apiErrorCode(error) === QUOTE_CHANGED_CODE) {
+            void cartResult.refetch()
+          }
         },
       },
     )
@@ -223,6 +242,12 @@ function CheckoutPage() {
   return (
     <div className="flex flex-col gap-6 md:gap-0">
       <CheckoutHeader />
+
+      <QuoteChangesNotice
+        changes={quoteChanges.changes}
+        onAcknowledge={quoteChanges.acknowledge}
+        className="mt-4"
+      />
 
       {/* Desktop e tablet */}
       <div

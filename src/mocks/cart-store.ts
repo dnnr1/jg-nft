@@ -1,7 +1,8 @@
 import { computeCartSummary, lineTotalOf } from '@/modules/cart/pricing'
+import { quoteEtagOf } from '@/modules/cart/quote'
 import type { Cart, CartCoupon } from '@/modules/cart/types'
 
-import { nftFixtures } from './fixtures/nfts'
+import { readNft } from './nft-store'
 
 const STORAGE_KEY = 'kurio.cart.v1'
 
@@ -143,7 +144,7 @@ function resolveCoupon(code: string | null): CartCoupon | null {
 /** Monta a resposta atual do carrinho a partir do estado em memória. */
 export function readCart(): Cart {
   const items = state.entries.flatMap((entry) => {
-    const nft = nftFixtures.find((item) => item.id === entry.id)
+    const nft = readNft(entry.id)
     if (!nft) return []
     return [
       {
@@ -167,12 +168,13 @@ export function readCart(): Cart {
     summary,
     version: state.version,
     updatedAt: state.updatedAt,
+    etag: quoteEtagOf(items, coupon?.code ?? null),
   }
 }
 
 export function updateCartItemQuantity(id: string, quantity: number): Cart {
   const entry = state.entries.find((item) => item.id === id)
-  const nft = nftFixtures.find((item) => item.id === id)
+  const nft = readNft(id)
 
   if (!entry || !nft) {
     throw new CartError(404, 'NOT_FOUND', 'Item não encontrado no carrinho')
@@ -226,7 +228,7 @@ export function removeCartEntries(ids: readonly string[]): Cart {
  * quantidades são somadas, nunca ultrapassando a disponibilidade do catálogo.
  */
 export function addCartItem(id: string, quantity: number): Cart {
-  const nft = nftFixtures.find((item) => item.id === id)
+  const nft = readNft(id)
   if (!nft) {
     throw new CartError(404, 'NOT_FOUND', 'NFT não encontrado no catálogo')
   }
