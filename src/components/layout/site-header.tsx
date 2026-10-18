@@ -5,6 +5,7 @@ import { Search } from 'lucide-react'
 import { CartFilledIcon, IconlyLogout, SignInIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { nameInitials } from '@/lib/initials'
 import { useAuth } from '@/modules/auth/auth-context'
 import { cn } from 'cn'
 import {
@@ -116,17 +117,6 @@ function HeaderSearch() {
   )
 }
 
-function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-}
-
 function CartLink() {
   const count = useCartCount()
 
@@ -203,7 +193,7 @@ export function SiteHeader({ divider }: { divider: boolean }) {
               title={user.name}
               className="grid size-9 shrink-0 place-content-center rounded-full bg-brand-gradient text-caption-bold text-ink"
             >
-              {getInitials(user.name)}
+              {nameInitials(user.name)}
             </span>
             <Button
               variant="ghost"

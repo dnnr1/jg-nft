@@ -2,6 +2,7 @@ import axios from 'axios'
 import { setupServer } from 'msw/node'
 
 import { resetCart } from '../src/mocks/cart-store'
+import { resetAccounts } from '../src/mocks/account-store'
 import { handlers } from '../src/mocks/handlers'
 import { DEMO_ORDER_ID, resetOrders } from '../src/mocks/order-store'
 import { resetWallets } from '../src/mocks/wallet-store'
@@ -487,6 +488,74 @@ async function main(): Promise<void> {
   const badWalletBody = await client.patch('/wallets/wallet-reserva', {})
   check(badWalletBody.status === 422, 'PATCH sem campos -> 422')
 
+  const WALLET_FORM_BODY = {
+    displayName: 'Daniel Roberto',
+    label: 'Secundária',
+    network: 'ethereum',
+    profileName: 'daniel.rbrt',
+    address: '0x1234567890abcdef1234567890abcdef12345678',
+    secondaryWallet: '',
+    type: 'secundaria',
+    referralCode: 'KURIO-SEC',
+    email: 'test123@gmail.com',
+    ensName: 'danielsec',
+    ensDomain: '.eth',
+  }
+
+  const createdWallet = await client.post('/wallets', WALLET_FORM_BODY)
+  check(
+    createdWallet.status === 201 && createdWallet.data.items.length === 3,
+    'POST cadastra uma nova carteira',
+  )
+  check(
+    createdWallet.data.items.find(
+      (wallet: { label: string }) => wallet.label === 'Secundária',
+    )?.ens === 'danielsec.eth',
+    'cadastro compõe o ENS a partir do nome e do domínio',
+  )
+
+  const createdPrimary = await client.post('/wallets', {
+    ...WALLET_FORM_BODY,
+    label: 'Nova principal',
+    type: 'principal',
+  })
+  check(
+    createdPrimary.status === 201 &&
+      createdPrimary.data.items.filter(
+        (wallet: { primary: boolean }) => wallet.primary,
+      ).length === 1 &&
+      createdPrimary.data.items.find(
+        (wallet: { label: string }) => wallet.label === 'Nova principal',
+      )?.primary === true,
+    'cadastro de principal rebaixa a principal anterior',
+  )
+
+  const invalidWallet = await client.post('/wallets', {
+    ...WALLET_FORM_BODY,
+    email: 'sem-arroba',
+  })
+  check(invalidWallet.status === 422, 'cadastro com e-mail inválido -> 422')
+
+  const incompleteWallet = await client.post('/wallets', { label: 'X' })
+  check(incompleteWallet.status === 422, 'cadastro incompleto -> 422')
+
+  const editedWallet = await client.patch('/wallets/wallet-principal', {
+    ...WALLET_FORM_BODY,
+    label: 'Principal editada',
+    network: 'solana',
+    type: 'principal',
+  })
+  check(
+    editedWallet.status === 200 &&
+      editedWallet.data.items.find(
+        (wallet: { id: string }) => wallet.id === 'wallet-principal',
+      )?.label === 'Principal editada' &&
+      editedWallet.data.items.find(
+        (wallet: { id: string }) => wallet.id === 'wallet-principal',
+      )?.network === 'solana',
+    'PATCH edita os campos do cadastro de carteira',
+  )
+
   resetWallets()
   const walletsReset = await client.get('/wallets')
   check(
@@ -494,6 +563,124 @@ async function main(): Promise<void> {
       (wallet: { id: string }) => wallet.id === 'wallet-reserva',
     )?.connected === true,
     'reset das carteiras restaura o cenário conhecido',
+  )
+
+  console.log('\nContrato /api/profile:')
+
+  resetAccounts()
+
+  const PROFILE_BODY = {
+    displayName: 'Daniel R.',
+    username: 'daniel.rbrt',
+    email: 'test123@gmail.com',
+    ensName: 'danielrbrt',
+    ensDomain: '.eth',
+    walletNickname: 'Carteira nova',
+    avatarUrl: 'data:image/png;base64,AAAA',
+  }
+  const authHeaders = { Authorization: 'Bearer usr_test123' }
+
+  const anonymousProfile = await client.get('/profile')
+  check(
+    anonymousProfile.status === 401 &&
+      anonymousProfile.data.error?.code === 'UNAUTHORIZED',
+    'perfil sem sessão -> 401 UNAUTHORIZED',
+  )
+
+  const expiredToken = await client.get('/profile', {
+    headers: { Authorization: 'Bearer usr_inexistente' },
+  })
+  check(expiredToken.status === 401, 'token de sessão desconhecido -> 401')
+
+  const profile = await client.get('/profile', { headers: authHeaders })
+  check(
+    profile.status === 200 &&
+      profile.data.profile?.username === 'daniel.rbrt' &&
+      profile.data.profile?.email === 'test123@gmail.com' &&
+      profile.data.profile?.avatarUrl === null,
+    'perfil autenticado devolve os dados da conta',
+  )
+
+  const savedProfile = await client.patch('/profile', PROFILE_BODY, {
+    headers: authHeaders,
+  })
+  check(
+    savedProfile.status === 200 &&
+      savedProfile.data.profile?.walletNickname === 'Carteira nova' &&
+      savedProfile.data.profile?.avatarUrl === 'data:image/png;base64,AAAA' &&
+      savedProfile.data.user?.name === 'Daniel R.',
+    'salvar devolve perfil e sessão atualizados',
+  )
+
+  const persistedProfile = await client.get('/profile', { headers: authHeaders })
+  check(
+    persistedProfile.data.profile?.displayName === 'Daniel R.',
+    'alterações do perfil persistem entre as consultas',
+  )
+
+  const usernameTaken = await client.patch(
+    '/profile',
+    { ...PROFILE_BODY, username: 'marina.alvz' },
+    { headers: authHeaders },
+  )
+  check(
+    usernameTaken.status === 409 &&
+      usernameTaken.data.error?.code === 'USERNAME_IN_USE' &&
+      usernameTaken.data.error?.field === 'username',
+    'nome de usuário de outra conta -> 409 no campo',
+  )
+
+  const invalidProfile = await client.patch(
+    '/profile',
+    { ...PROFILE_BODY, email: 'sem-arroba' },
+    { headers: authHeaders },
+  )
+  check(invalidProfile.status === 422, 'e-mail inválido no perfil -> 422')
+
+  const wrongPassword = await client.post(
+    '/profile/password',
+    { currentPassword: 'errada123', newPassword: 'novasenha123' },
+    { headers: authHeaders },
+  )
+  check(
+    wrongPassword.status === 422 &&
+      wrongPassword.data.error?.code === 'INVALID_PASSWORD' &&
+      wrongPassword.data.error?.field === 'currentPassword',
+    'senha atual incorreta -> 422 no campo correspondente',
+  )
+
+  const shortPassword = await client.post(
+    '/profile/password',
+    { currentPassword: '12345678', newPassword: 'curta' },
+    { headers: authHeaders },
+  )
+  check(shortPassword.status === 422, 'nova senha curta -> 422')
+
+  const changedPassword = await client.post(
+    '/profile/password',
+    { currentPassword: '12345678', newPassword: 'novasenha123' },
+    { headers: authHeaders },
+  )
+  check(changedPassword.status === 200, 'troca de senha válida -> 200')
+
+  const oldPassword = await client.post('/auth/login', {
+    email: 'test123@gmail.com',
+    password: '12345678',
+  })
+  check(oldPassword.status === 401, 'a senha antiga deixa de autenticar')
+
+  const newPassword = await client.post('/auth/login', {
+    email: 'test123@gmail.com',
+    password: 'novasenha123',
+  })
+  check(newPassword.status === 200, 'a nova senha autentica')
+
+  resetAccounts()
+  const accountsReset = await client.get('/profile', { headers: authHeaders })
+  check(
+    accountsReset.data.profile?.displayName === 'Daniel Roberto' &&
+      accountsReset.data.profile?.walletNickname === 'Principal',
+    'reset das contas restaura o cenário conhecido',
   )
 
   console.log('\nContrato /api/orders:')

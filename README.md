@@ -118,6 +118,27 @@ Defina e documente os contratos utilizados. Os recursos mínimos são:
 
 As respostas devem representar erros de validação, sessão inválida, falta de permissão, recurso inexistente, conflito de disponibilidade e falha transitória.
 
+### Endpoints implementados na API simulada
+
+O envelope de erro é `{ "error": { "code", "message", "field?" } }`; `field` indica o
+campo do formulário quando o erro é de validação. As rotas de perfil exigem
+`Authorization: Bearer <id da sessão>` — o token é fictício e, sem ele, a
+resposta é `401 UNAUTHORIZED`.
+
+| Método e rota                | Descrição                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| `POST /api/auth/login`       | Autentica por e-mail e senha e devolve o usuário da sessão                |
+| `POST /api/auth/register`    | Cria a conta; e-mail repetido responde `409 EMAIL_IN_USE`                 |
+| `GET /api/profile`           | Perfil do colecionador (dados, ENS, apelido da carteira e avatar)         |
+| `PATCH /api/profile`         | Salva perfil e avatar; nome de usuário/e-mail em uso respondem 409        |
+| `POST /api/profile/password` | Troca a senha; senha atual incorreta responde 422 no campo informado      |
+| `GET /api/wallets`           | Carteiras cadastradas                                                     |
+| `POST /api/wallets`          | Cadastra carteira; a principal rebaixa a anterior                         |
+| `PATCH /api/wallets/:id`     | Edita o cadastro e/ou os estados `primary` e `connected`                  |
+
+As senhas da simulação são guardadas apenas como hash (FNV-1a com sal), nunca
+em claro, e as contas persistem no `localStorage` para sobreviver ao refresh.
+
 As mutations de pedido devem aceitar uma chave de idempotência. Na simulação, a mesma tentativa deve recuperar o mesmo pedido; reutilizar a chave com conteúdo diferente deve gerar conflito.
 
 ## 6. Mocking com MSW

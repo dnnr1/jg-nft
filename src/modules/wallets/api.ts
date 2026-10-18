@@ -1,14 +1,26 @@
 import { apiClient } from '@/lib/api'
 
-import { walletsResponseSchema, type WalletsResponse } from './types'
+import {
+  walletsResponseSchema,
+  type WalletInput,
+  type WalletsResponse,
+} from './types'
 
-export interface WalletPatch {
+export interface WalletPatch
+  extends Partial<WalletInput> {
   primary?: boolean
   connected?: boolean
 }
 
 export async function fetchWallets(): Promise<WalletsResponse> {
   const response = await apiClient.get<WalletsResponse>('/wallets')
+  return walletsResponseSchema.parse(response.data)
+}
+
+export async function createWallet(
+  input: WalletInput,
+): Promise<WalletsResponse> {
+  const response = await apiClient.post<WalletsResponse>('/wallets', input)
   return walletsResponseSchema.parse(response.data)
 }
 

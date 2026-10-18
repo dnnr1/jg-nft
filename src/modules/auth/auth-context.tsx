@@ -8,10 +8,12 @@ import {
   type ReactNode,
 } from 'react'
 
-import { loginWithPassword, registerAccount } from './api'
-import type { LoginInput, SignupInput, User } from './types'
+import { useRouter } from '@tanstack/react-router'
 
-const SESSION_STORAGE_KEY = 'kurio.session'
+import { loginWithPassword, registerAccount } from './api'
+import { consumeAfterLoginPath } from './after-login'
+import { persistStoredUser, readStoredUser } from './session'
+import type { LoginInput, SignupInput, User } from './types'
 
 export type AuthMode = 'login' | 'signup'
 
@@ -26,41 +28,35 @@ interface AuthContextValue {
   setDialogMode: (mode: AuthMode) => void
   login: (input: LoginInput) => Promise<User>
   signup: (input: SignupInput) => Promise<User>
+  /** Atualiza a sessão em memória e no armazenamento (ex.: perfil salvo). */
+  updateSession: (session: User) => void
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-
-function readStoredUser(): User | null {
-  try {
-    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as User) : null
-  } catch {
-    return null
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<AuthMode>('login')
+  const router = useRouter()
 
   useEffect(() => {
     setUser(readStoredUser())
     setIsReady(true)
   }, [])
 
+  // Retoma o fluxo interrompido pela exigência de sessão assim que ela existe.
+  useEffect(() => {
+    if (!user) return
+    const target = consumeAfterLoginPath()
+    if (!target || target === router.state.location.pathname) return
+    router.history.push(target)
+  }, [user, router])
+
   const persistSession = useCallback((session: User | null) => {
-    try {
-      if (session) {
-        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session))
-      } else {
-        window.localStorage.removeItem(SESSION_STORAGE_KEY)
-      }
-    } catch {
-      // Armazenamento indisponível: a sessão permanece apenas em memória.
-    }
+    persistStoredUser(session)
   }, [])
 
   const openAuthDialog = useCallback((mode: AuthMode = 'login') => {
@@ -95,6 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistSession(null)
   }, [persistSession])
 
+  const updateSession = useCallback(
+    (session: User) => {
+      setUser(session)
+      persistSession(session)
+    },
+    [persistSession],
+  )
+
   const value = useMemo(
     () => ({
       user,
@@ -106,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setDialogMode,
       login,
       signup,
+      updateSession,
       logout,
     }),
     [
@@ -117,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       closeAuthDialog,
       login,
       signup,
+      updateSession,
       logout,
     ],
   )

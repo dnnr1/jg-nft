@@ -2,17 +2,20 @@ import {
   CATALOG_NETWORKS,
   NETWORK_LABELS,
 } from '@/modules/catalog/search-params'
+import {
+  WALLET_TYPES,
+  WALLET_TYPE_LABELS,
+} from '@/modules/wallets/types'
 
 /** Redes oferecidas no formulário do colecionador. */
 export const NETWORK_OPTIONS: ReadonlyArray<{ id: string; label: string }> =
   CATALOG_NETWORKS.map((id) => ({ id, label: NETWORK_LABELS[id] ?? id }))
 
 /** Tipos de carteira, alinhados aos rótulos usados nos cartões do checkout. */
-export const WALLET_TYPE_OPTIONS = [
-  { id: 'principal', label: 'Principal' },
-  { id: 'secundaria', label: 'Secundária' },
-  { id: 'reserva', label: 'Reserva' },
-] as const
+export const WALLET_TYPE_OPTIONS = WALLET_TYPES.map((id) => ({
+  id,
+  label: WALLET_TYPE_LABELS[id],
+}))
 
 export const ENS_DOMAIN_OPTIONS = ['.eth', '.xyz', '.nft'] as const
 

@@ -16,6 +16,16 @@ import {
 } from '@/modules/checkout/constants'
 
 import {
+  AccountError,
+  authenticateAccount,
+  changePassword as changePasswordState,
+  emailInUse,
+  hasAccount,
+  readProfile,
+  registerAccount,
+  updateProfile as updateProfileState,
+} from './account-store'
+import {
   CartError,
   addCartItem,
   applyCoupon,
@@ -28,8 +38,10 @@ import { nftFixtures } from './fixtures/nfts'
 import { OrderError, createOrder, readOrder } from './order-store'
 import {
   WalletError,
+  createWallet as createWalletState,
   readWallets,
   updateWallet as updateWalletState,
+  type WalletPatch,
 } from './wallet-store'
 
 const LATENCY_MS = 350
@@ -139,33 +151,44 @@ function parseQuantity(value: unknown): number | null {
 
 const PRICE_PATTERN = /^\d{1,2}(\.\d{1,2})?$/
 
-interface MockAccount {
-  id: string
-  name: string
-  email: string
-  password: string
-}
-
-const MOCK_ACCOUNTS: MockAccount[] = [
-  {
-    id: 'usr_test123',
-    name: 'Daniel Roberto',
-    email: 'test123@gmail.com',
-    password: '12345678',
-  },
-]
-
-function authError(status: number, code: string, message: string) {
+function authError(
+  status: number,
+  code: string,
+  message: string,
+  field?: string,
+) {
   return HttpResponse.json(
     {
       error: {
         code,
         message,
+        ...(field ? { field } : {}),
         requestId: 'mock-auth',
       },
     },
     { status },
   )
+}
+
+function accountErrorResponse(error: AccountError) {
+  return authError(error.status, error.code, error.message, error.field ?? undefined)
+}
+
+/**
+ * Autoriza a requisição pelo token da sessão simulada (`Bearer <userId>`).
+ * Sem token válido a resposta é 401, exercitando sessão expirada.
+ */
+function requireAccountId(request: Request): string {
+  const header = request.headers.get('authorization') ?? ''
+  const token = header.replace(/^Bearer\s+/i, '').trim()
+  if (!token || !hasAccount(token)) {
+    throw new AccountError(
+      401,
+      'UNAUTHORIZED',
+      'Sua sessão expirou. Entre novamente para continuar.',
+    )
+  }
+  return token
 }
 
 function readJsonBody(request: Request): Promise<Record<string, unknown>> {
@@ -377,14 +400,17 @@ export const handlers = [
       return validationError('Informe e-mail e senha')
     }
 
-    const account = MOCK_ACCOUNTS.find((item) => item.email === email)
-    if (!account || account.password !== password) {
-      return authError(401, 'INVALID_CREDENTIALS', 'E-mail ou senha incorretos')
+    try {
+      const account = authenticateAccount(email, password)
+      return HttpResponse.json({
+        user: { id: account.id, name: account.name, email: account.email },
+      })
+    } catch (error) {
+      if (error instanceof AccountError) {
+        return accountErrorResponse(error)
+      }
+      throw error
     }
-
-    return HttpResponse.json({
-      user: { id: account.id, name: account.name, email: account.email },
-    })
   }),
 
   http.post('*/api/auth/register', async ({ request }) => {
@@ -400,24 +426,88 @@ export const handlers = [
       return validationError('Preencha nome, e-mail e senha')
     }
 
-    if (MOCK_ACCOUNTS.some((item) => item.email === email)) {
-      return authError(409, 'EMAIL_IN_USE', 'Este e-mail já está cadastrado')
+    if (emailInUse(email)) {
+      return authError(
+        409,
+        'EMAIL_IN_USE',
+        'Este e-mail já está cadastrado',
+        'email',
+      )
     }
 
-    const account: MockAccount = {
-      id: `usr_${Date.now().toString(36)}`,
-      name,
-      email,
-      password,
+    try {
+      const account = registerAccount({ name, email, password })
+      return HttpResponse.json(
+        {
+          user: { id: account.id, name: account.name, email: account.email },
+        },
+        { status: 201 },
+      )
+    } catch (error) {
+      if (error instanceof AccountError) {
+        return accountErrorResponse(error)
+      }
+      throw error
     }
-    MOCK_ACCOUNTS.push(account)
+  }),
 
-    return HttpResponse.json(
-      {
-        user: { id: account.id, name: account.name, email: account.email },
-      },
-      { status: 201 },
-    )
+  http.get('*/api/profile', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    try {
+      return HttpResponse.json({
+        profile: readProfile(requireAccountId(request)),
+      })
+    } catch (error) {
+      if (error instanceof AccountError) {
+        return accountErrorResponse(error)
+      }
+      throw error
+    }
+  }),
+
+  http.patch('*/api/profile', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = await readJsonBody(request)
+    try {
+      return HttpResponse.json(
+        updateProfileState(requireAccountId(request), body),
+      )
+    } catch (error) {
+      if (error instanceof AccountError) {
+        return accountErrorResponse(error)
+      }
+      throw error
+    }
+  }),
+
+  http.post('*/api/profile/password', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = await readJsonBody(request)
+    const currentPassword =
+      typeof body.currentPassword === 'string' ? body.currentPassword : ''
+    const newPassword =
+      typeof body.newPassword === 'string' ? body.newPassword : ''
+
+    if (!currentPassword || !newPassword) {
+      return validationError('Informe a senha atual e a nova senha')
+    }
+
+    try {
+      changePasswordState(
+        requireAccountId(request),
+        currentPassword,
+        newPassword,
+      )
+      return HttpResponse.json({ ok: true })
+    } catch (error) {
+      if (error instanceof AccountError) {
+        return accountErrorResponse(error)
+      }
+      throw error
+    }
   }),
 
   http.get('*/api/cart', async () => {
@@ -507,28 +597,43 @@ export const handlers = [
     return HttpResponse.json(readWallets())
   }),
 
+  http.post('*/api/wallets', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = await readJsonBody(request)
+    try {
+      return HttpResponse.json(createWalletState(body), { status: 201 })
+    } catch (error) {
+      return walletErrorResponse(asWalletError(error))
+    }
+  }),
+
   http.patch('*/api/wallets/:id', async ({ params, request }) => {
     await sleep(LATENCY_MS)
 
-    const body = (await request.json().catch(() => null)) as
-      | { primary?: unknown; connected?: unknown }
-      | null
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
     if (body === null) {
-      return validationError('O corpo deve conter "primary" e/ou "connected"')
+      return validationError('O corpo deve conter os campos da carteira')
     }
 
     try {
-      const primary = parseBoolean(body.primary)
-      const connected = parseBoolean(body.connected)
-      if (primary === undefined && connected === undefined) {
+      if (Object.keys(body).length === 0) {
         throw new WalletError(
           422,
           'VALIDATION_ERROR',
-          'Informe "primary" e/ou "connected"',
+          'Informe ao menos um campo da carteira',
         )
       }
+      const patch: WalletPatch = {
+        ...(body as WalletPatch),
+        primary: parseBoolean(body.primary),
+        connected: parseBoolean(body.connected),
+      }
       return HttpResponse.json(
-        updateWalletState(String(params.id), { primary, connected }),
+        updateWalletState(String(params.id), patch),
       )
     } catch (error) {
       return walletErrorResponse(asWalletError(error))

@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from 'cn'
 import { useAuth } from '@/modules/auth/auth-context'
-import {
-  consumeCheckoutIntent,
-  requestCheckoutAfterLogin,
-} from '@/modules/checkout/intent'
+import { rememberAfterLogin } from '@/modules/auth/after-login'
 import type { Cart } from '../types'
 
 /**
@@ -138,14 +135,6 @@ export function CartSummaryPanel({
   const { summary } = cart
   const panelRef = useRef<HTMLElement>(null)
   const { user, openAuthDialog } = useAuth()
-  const navigate = useNavigate()
-
-  // Retoma o checkout assim que a sessão pedida pelo CTA — ou pela guarda da
-  // própria rota /checkout — concluir.
-  useEffect(() => {
-    if (!user || !consumeCheckoutIntent()) return
-    void navigate({ to: '/checkout' })
-  }, [user, navigate])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -235,7 +224,7 @@ export function CartSummaryPanel({
         <button
           type="button"
           onClick={() => {
-            requestCheckoutAfterLogin()
+            rememberAfterLogin('/checkout')
             openAuthDialog('login')
           }}
           className={CHECKOUT_CTA_CLASS}
