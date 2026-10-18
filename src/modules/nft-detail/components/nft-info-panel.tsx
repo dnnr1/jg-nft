@@ -1,11 +1,10 @@
-import { Link } from '@tanstack/react-router'
-
 import {
   LinkedinIcon,
   TwitterIcon,
 } from '@/components/common/brand-icons'
 import { QuantityStepper } from '@/components/common/quantity-stepper'
 import { HeartOutlineIcon } from '@/components/icons'
+import { useAuth } from '@/modules/auth/auth-context'
 import { cn } from 'cn'
 import type { Nft } from '@/modules/catalog/types'
 
@@ -44,6 +43,7 @@ export function NftInfoPanel({
   onBuy,
   buyPending,
 }: NftInfoPanelProps) {
+  const { openAuthDialog } = useAuth()
   const maxQty = Math.max(1, nft.available)
   const displayQty = Math.min(qty, maxQty)
   const soldOut = nft.available === 0
@@ -182,14 +182,15 @@ export function NftInfoPanel({
             >
               {buyPending ? 'ADICIONANDO…' : 'COMPRAR'}
             </button>
-            <Link
-              to="/login"
+            <button
+              type="button"
               aria-label="Entrar para favoritar"
+              onClick={() => openAuthDialog('login')}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-primary bg-transparent px-4 text-sm font-semibold text-primary hover:bg-primary/10"
             >
               <HeartOutlineIcon className="size-5" />
               Favoritar
-            </Link>
+            </button>
           </div>
         </section>
 

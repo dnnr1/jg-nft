@@ -12,9 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as SignupRouteImport } from './routes/signup'
 import { Route as WalletsRouteImport } from './routes/wallets'
 import { Route as NftsIdRouteImport } from './routes/nfts.$id'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
@@ -34,19 +32,9 @@ const CheckoutRoute = CheckoutRouteImport.update({
   path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WalletsRoute = WalletsRouteImport.update({
@@ -69,9 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/signup': typeof SignupRoute
   '/wallets': typeof WalletsRoute
   '/nfts/$id': typeof NftsIdRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -80,9 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/signup': typeof SignupRoute
   '/wallets': typeof WalletsRoute
   '/nfts/$id': typeof NftsIdRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -92,9 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/signup': typeof SignupRoute
   '/wallets': typeof WalletsRoute
   '/nfts/$id': typeof NftsIdRoute
   '/orders/$id': typeof OrdersIdRoute
@@ -105,9 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
-    | '/login'
     | '/profile'
-    | '/signup'
     | '/wallets'
     | '/nfts/$id'
     | '/orders/$id'
@@ -116,9 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
-    | '/login'
     | '/profile'
-    | '/signup'
     | '/wallets'
     | '/nfts/$id'
     | '/orders/$id'
@@ -127,9 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
-    | '/login'
     | '/profile'
-    | '/signup'
     | '/wallets'
     | '/nfts/$id'
     | '/orders/$id'
@@ -139,9 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
-  LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
-  SignupRoute: typeof SignupRoute
   WalletsRoute: typeof WalletsRoute
   NftsIdRoute: typeof NftsIdRoute
   OrdersIdRoute: typeof OrdersIdRoute
@@ -170,25 +144,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/wallets': {
@@ -219,9 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
-  LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
-  SignupRoute: SignupRoute,
   WalletsRoute: WalletsRoute,
   NftsIdRoute: NftsIdRoute,
   OrdersIdRoute: OrdersIdRoute,
