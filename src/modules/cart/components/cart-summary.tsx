@@ -205,7 +205,9 @@ export function CartSummaryPanel({
           disabled
           className={cn(
             buttonVariants({ size: 'full' }),
-            'text-body-lg-bold mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
+            // text-base (16px/24px) equals the body-lg-bold token; using the raw
+            // size keeps the variant's dark text-ink from being merged away.
+            'text-base mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
           )}
         >
           Edição indisponível
@@ -215,7 +217,9 @@ export function CartSummaryPanel({
           to="/checkout"
           className={cn(
             buttonVariants({ size: 'full' }),
-            'text-body-lg-bold mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
+            // text-base (16px/24px) equals the body-lg-bold token; using the raw
+            // size keeps the variant's dark text-ink from being merged away.
+            'text-base mt-5 h-11 rounded-full md:mt-4 md:h-9 md:rounded-default md:text-sm',
           )}
         >
           Conectar e finalizar
