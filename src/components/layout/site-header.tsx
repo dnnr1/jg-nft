@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { Search } from 'lucide-react'
 
-import { CartFilledIcon, SignInIcon } from '@/components/icons'
-import { buttonVariants } from '@/components/ui/button'
+import { CartFilledIcon, IconlyLogout, SignInIcon } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useAuth } from '@/modules/auth/auth-context'
 import { cn } from 'cn'
 import {
   resolveCatalogSearch,
@@ -114,10 +115,22 @@ function HeaderSearch() {
   )
 }
 
+function getInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 export function SiteHeader({ divider }: { divider: boolean }) {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const { user, openAuthDialog, logout } = useAuth()
 
   const isEntryActive = (label: string): boolean => {
     if (label === 'Início') return pathname === '/'
@@ -159,16 +172,34 @@ export function SiteHeader({ divider }: { divider: boolean }) {
         >
           <CartFilledIcon className="size-5" />
         </Link>
-        <Link
-          to="/login"
-          className={cn(
-            buttonVariants(),
-            'h-9 px-4 font-medium hover:bg-primary/90',
-          )}
-        >
-          <SignInIcon className="size-5" />
-          <span>Entrar</span>
-        </Link>
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              title={user.name}
+              className="grid size-9 shrink-0 place-content-center rounded-full bg-brand-gradient text-caption-bold text-ink"
+            >
+              {getInitials(user.name)}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="font-medium"
+            >
+              <IconlyLogout className="size-4" aria-hidden="true" />
+              <span>Sair</span>
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={() => openAuthDialog('login')}
+            className="h-9 px-4 font-medium"
+          >
+            <SignInIcon className="size-5" aria-hidden="true" />
+            <span>Entrar</span>
+          </Button>
+        )}
       </div>
     </header>
   )

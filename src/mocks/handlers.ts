@@ -39,6 +39,44 @@ function validationError(message: string) {
 
 const PRICE_PATTERN = /^\d{1,2}(\.\d{1,2})?$/
 
+interface MockAccount {
+  id: string
+  name: string
+  email: string
+  password: string
+}
+
+const MOCK_ACCOUNTS: MockAccount[] = [
+  {
+    id: 'usr_test123',
+    name: 'Daniel Roberto',
+    email: 'test123@gmail.com',
+    password: '12345678',
+  },
+]
+
+function authError(status: number, code: string, message: string) {
+  return HttpResponse.json(
+    {
+      error: {
+        code,
+        message,
+        requestId: 'mock-auth',
+      },
+    },
+    { status },
+  )
+}
+
+function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+  return request
+    .json()
+    .then((body) =>
+      body && typeof body === 'object' ? (body as Record<string, unknown>) : {},
+    )
+    .catch(() => ({}))
+}
+
 const TRENDING_MIN_FAVORITES = 180
 const NEW_RELEASE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -225,5 +263,60 @@ export const handlers = [
       )
     }
     return HttpResponse.json(nft)
+  }),
+
+  http.post('*/api/auth/login', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = await readJsonBody(request)
+    const email =
+      typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+
+    if (!email || !password) {
+      return validationError('Informe e-mail e senha')
+    }
+
+    const account = MOCK_ACCOUNTS.find((item) => item.email === email)
+    if (!account || account.password !== password) {
+      return authError(401, 'INVALID_CREDENTIALS', 'E-mail ou senha incorretos')
+    }
+
+    return HttpResponse.json({
+      user: { id: account.id, name: account.name, email: account.email },
+    })
+  }),
+
+  http.post('*/api/auth/register', async ({ request }) => {
+    await sleep(LATENCY_MS)
+
+    const body = await readJsonBody(request)
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    const email =
+      typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+
+    if (!name || !email || !password) {
+      return validationError('Preencha nome, e-mail e senha')
+    }
+
+    if (MOCK_ACCOUNTS.some((item) => item.email === email)) {
+      return authError(409, 'EMAIL_IN_USE', 'Este e-mail já está cadastrado')
+    }
+
+    const account: MockAccount = {
+      id: `usr_${Date.now().toString(36)}`,
+      name,
+      email,
+      password,
+    }
+    MOCK_ACCOUNTS.push(account)
+
+    return HttpResponse.json(
+      {
+        user: { id: account.id, name: account.name, email: account.email },
+      },
+      { status: 201 },
+    )
   }),
 ]

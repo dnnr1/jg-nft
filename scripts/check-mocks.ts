@@ -189,6 +189,66 @@ async function main(): Promise<void> {
     'recomendações: filtra por coleção e exclui o NFT atual',
   )
 
+  console.log('Contrato POST /api/auth:')
+
+  const loginOk = await client.post('/auth/login', {
+    email: 'test123@gmail.com',
+    password: '12345678',
+  })
+  check(
+    loginOk.status === 200 &&
+      loginOk.data.user?.email === 'test123@gmail.com' &&
+      typeof loginOk.data.user?.id === 'string',
+    'login com credenciais válidas -> 200 com usuário',
+  )
+
+  const loginWrong = await client.post('/auth/login', {
+    email: 'test123@gmail.com',
+    password: 'senha-errada',
+  })
+  check(
+    loginWrong.status === 401 &&
+      loginWrong.data.error?.code === 'INVALID_CREDENTIALS',
+    'login com senha incorreta -> 401 INVALID_CREDENTIALS',
+  )
+
+  const loginMissing = await client.post('/auth/login', { email: '' })
+  check(
+    loginMissing.status === 422 &&
+      loginMissing.data.error?.code === 'VALIDATION_ERROR',
+    'login sem campos -> 422 VALIDATION_ERROR',
+  )
+
+  const registerDuplicate = await client.post('/auth/register', {
+    name: 'Outro',
+    email: 'test123@gmail.com',
+    password: '12345678',
+  })
+  check(
+    registerDuplicate.status === 409 &&
+      registerDuplicate.data.error?.code === 'EMAIL_IN_USE',
+    'cadastro com e-mail já usado -> 409 EMAIL_IN_USE',
+  )
+
+  const registerOk = await client.post('/auth/register', {
+    name: 'Colecionadora',
+    email: 'nova@kurio.test',
+    password: '12345678',
+  })
+  check(
+    registerOk.status === 201 && registerOk.data.user?.email === 'nova@kurio.test',
+    'cadastro novo -> 201 com usuário criado',
+  )
+
+  const loginAfterRegister = await client.post('/auth/login', {
+    email: 'nova@kurio.test',
+    password: '12345678',
+  })
+  check(
+    loginAfterRegister.status === 200,
+    'login com conta recém-criada -> 200',
+  )
+
   await server.close()
 
   if (failures > 0) {

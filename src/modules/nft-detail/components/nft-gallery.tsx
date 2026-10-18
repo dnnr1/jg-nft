@@ -4,6 +4,7 @@ import { ChevronLeft, Search } from 'lucide-react'
 
 import { Lightbox } from '@/components/common/lightbox'
 import { HeartOutlineIcon } from '@/components/icons'
+import { useAuth } from '@/modules/auth/auth-context'
 import { cn } from 'cn'
 import type { Nft } from '@/modules/catalog/types'
 
@@ -14,6 +15,7 @@ interface NftGalleryProps {
 export function NftGallery({ nft }: NftGalleryProps) {
   const [selected, setSelected] = useState(0)
   const [zoomOpen, setZoomOpen] = useState(false)
+  const { openAuthDialog } = useAuth()
 
   return (
     <section aria-label="Galeria do NFT" className="min-w-0">
@@ -25,13 +27,14 @@ export function NftGallery({ nft }: NftGalleryProps) {
         >
           <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
-        <Link
-          to="/login"
+        <button
+          type="button"
           aria-label="Entrar para favoritar"
+          onClick={() => openAuthDialog('login')}
           className="flex size-8.75 items-center justify-center rounded-[17.5px] border border-border bg-surface-raised text-primary"
         >
           <HeartOutlineIcon className="size-5" />
-        </Link>
+        </button>
       </div>
 
       <div className="flex min-w-0 flex-col gap-4 md:flex-row md:gap-4">

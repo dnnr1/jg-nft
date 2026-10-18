@@ -15,6 +15,9 @@ import type { ReactNode } from 'react'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { SiteHeader } from '@/components/layout/site-header'
+import { ToastProvider } from '@/components/common/toast'
+import { AuthProvider } from '@/modules/auth/auth-context'
+import { AuthDialog } from '@/modules/auth/components/auth-dialog'
 import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -60,31 +63,36 @@ function RootComponent() {
   })
 
   return (
-    <RootDocument>
-      <a
-        href="#conteudo"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
-      >
-        Pular para o conteúdo
-      </a>
-      <main
-        id="conteudo"
-        className={`mx-auto max-w-[1440px] ${
-          isNftDetail
-            ? 'p-0 md:px-6 md:py-6 xl:px-30'
-            : 'px-6 py-10 md:py-6 xl:px-30'
-        } ${
-          isCatalog
-            ? 'pb-[calc(128px+env(safe-area-inset-bottom,0px))] md:pb-6'
-            : ''
-        }`}
-      >
-        <SiteHeader divider={isCatalog} />
-        <Outlet />
-        <SiteFooter />
-      </main>
-      {isCatalog ? <MobileTabBar /> : null}
-    </RootDocument>
+    <ToastProvider>
+      <AuthProvider>
+        <RootDocument>
+          <a
+            href="#conteudo"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+          >
+            Pular para o conteúdo
+          </a>
+          <main
+            id="conteudo"
+            className={`mx-auto max-w-[1440px] ${
+              isNftDetail
+                ? 'p-0 md:px-6 md:py-6 xl:px-30'
+                : 'px-6 py-10 md:py-6 xl:px-30'
+            } ${
+              isCatalog
+                ? 'pb-[calc(128px+env(safe-area-inset-bottom,0px))] md:pb-6'
+                : ''
+            }`}
+          >
+            <SiteHeader divider={isCatalog} />
+            <Outlet />
+            <SiteFooter />
+          </main>
+          {isCatalog ? <MobileTabBar /> : null}
+        </RootDocument>
+        <AuthDialog />
+      </AuthProvider>
+    </ToastProvider>
   )
 }
 
