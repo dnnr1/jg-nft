@@ -61,6 +61,10 @@ function RootComponent() {
   const isNftDetail = useRouterState({
     select: (state) => state.location.pathname.startsWith('/nfts/'),
   })
+  const isCart = useRouterState({
+    select: (state) => state.location.pathname === '/cart',
+  })
+  const hasMobileDock = isCatalog
 
   return (
     <ToastProvider>
@@ -79,16 +83,16 @@ function RootComponent() {
                 ? 'p-0 md:px-6 md:py-6 xl:px-30'
                 : 'px-6 py-10 md:py-6 xl:px-30'
             } ${
-              isCatalog
+              hasMobileDock
                 ? 'pb-[calc(128px+env(safe-area-inset-bottom,0px))] md:pb-6'
                 : ''
-            }`}
+            } ${isCart ? 'max-md:pb-[var(--cart-summary-height)]' : ''}`}
           >
             <SiteHeader divider={isCatalog} />
             <Outlet />
             <SiteFooter />
           </main>
-          {isCatalog ? <MobileTabBar /> : null}
+          {hasMobileDock ? <MobileTabBar /> : null}
         </RootDocument>
         <AuthDialog />
       </AuthProvider>

@@ -12,6 +12,7 @@ import {
   toUrlSearch,
   type CatalogUrlSearch,
 } from '@/modules/catalog/search-params'
+import { useCartCount } from '@/modules/cart/use-cart-count'
 
 interface NavEntry {
   label: string
@@ -126,6 +127,30 @@ function getInitials(name: string): string {
     .toUpperCase()
 }
 
+function CartLink() {
+  const count = useCartCount()
+
+  return (
+    <Link
+      to="/cart"
+      aria-label={
+        count > 0 ? `Carrinho — ${count} edições` : 'Carrinho — vazio'
+      }
+      className="relative inline-flex size-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-primary/10"
+    >
+      <CartFilledIcon className="size-5" />
+      {count > 0 ? (
+        <span
+          aria-hidden="true"
+          className="text-tiny-bold absolute -top-1 -right-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-ink"
+        >
+          {count > 99 ? '99+' : count}
+        </span>
+      ) : null}
+    </Link>
+  )
+}
+
 export function SiteHeader({ divider }: { divider: boolean }) {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -134,7 +159,8 @@ export function SiteHeader({ divider }: { divider: boolean }) {
 
   const isEntryActive = (label: string): boolean => {
     if (label === 'Início') return pathname === '/'
-    if (label === 'Mercado') return pathname.startsWith('/nfts/')
+    if (label === 'Mercado')
+      return pathname === '/cart' || pathname.startsWith('/nfts/')
     return false
   }
 
@@ -165,13 +191,7 @@ export function SiteHeader({ divider }: { divider: boolean }) {
       </nav>
       <div className="flex items-center gap-4">
         <HeaderSearch />
-        <Link
-          to="/cart"
-          aria-label="Carrinho"
-          className="relative inline-flex size-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-primary/10"
-        >
-          <CartFilledIcon className="size-5" />
-        </Link>
+        <CartLink />
         {user ? (
           <div className="flex items-center gap-2">
             <span

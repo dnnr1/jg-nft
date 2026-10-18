@@ -2,11 +2,11 @@ import {
   LinkedinIcon,
   TwitterIcon,
 } from '@/components/common/brand-icons'
+import { QuantityStepper } from '@/components/common/quantity-stepper'
 import { HeartOutlineIcon } from '@/components/icons'
 import { useAuth } from '@/modules/auth/auth-context'
 import { cn } from 'cn'
 import type { Nft } from '@/modules/catalog/types'
-import { QuantityStepper } from './quantity-stepper'
 
 const EDITION_OPTIONS = ['1/1', '1/10', '1/50', 'ABERTA'] as const
 
@@ -32,9 +32,17 @@ interface NftInfoPanelProps {
   nft: Nft
   qty: number
   onQtyChange: (qty: number) => void
+  onBuy: () => void
+  buyPending?: boolean
 }
 
-export function NftInfoPanel({ nft, qty, onQtyChange }: NftInfoPanelProps) {
+export function NftInfoPanel({
+  nft,
+  qty,
+  onQtyChange,
+  onBuy,
+  buyPending,
+}: NftInfoPanelProps) {
   const { openAuthDialog } = useAuth()
   const maxQty = Math.max(1, nft.available)
   const displayQty = Math.min(qty, maxQty)
@@ -168,10 +176,11 @@ export function NftInfoPanel({ nft, qty, onQtyChange }: NftInfoPanelProps) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={purchaseBlocked}
+              disabled={purchaseBlocked || buyPending}
+              onClick={onBuy}
               className="inline-flex h-10 min-w-32 items-center justify-center rounded-md bg-primary px-8 text-sm font-bold text-ink hover:bg-primary-dark disabled:opacity-40"
             >
-              COMPRAR
+              {buyPending ? 'ADICIONANDO…' : 'COMPRAR'}
             </button>
             <button
               type="button"

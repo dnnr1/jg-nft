@@ -1,15 +1,23 @@
 import { ShoppingBag } from 'lucide-react'
 
+import { QuantityStepper } from '@/components/common/quantity-stepper'
 import type { Nft } from '@/modules/catalog/types'
-import { QuantityStepper } from './quantity-stepper'
 
 interface PurchaseBarProps {
   nft: Nft
   qty: number
   onQtyChange: (qty: number) => void
+  onBuy: () => void
+  buyPending?: boolean
 }
 
-export function PurchaseBar({ nft, qty, onQtyChange }: PurchaseBarProps) {
+export function PurchaseBar({
+  nft,
+  qty,
+  onQtyChange,
+  onBuy,
+  buyPending,
+}: PurchaseBarProps) {
   const maxQty = Math.max(1, nft.available)
   const displayQty = Math.min(qty, maxQty)
   const blocked = nft.available === 0 || !nft.editable
@@ -37,15 +45,18 @@ export function PurchaseBar({ nft, qty, onQtyChange }: PurchaseBarProps) {
       <div className="flex items-center justify-start gap-3">
         <button
           type="button"
-          disabled={blocked}
+          disabled={blocked || buyPending}
+          onClick={onBuy}
           className="inline-flex h-15 w-49 items-center justify-start rounded-[40px] bg-[linear-gradient(93deg,#D28A4C_-3.96%,rgba(210,138,76,0.8)_121.97%)] px-11 text-base leading-5 font-bold text-ink disabled:opacity-40"
         >
-          Comprar NFT
+          {buyPending ? 'Adicionando…' : 'Comprar NFT'}
         </button>
         <button
           type="button"
           aria-label="Adicionar ao carrinho"
-          className="inline-flex size-15 items-center justify-center rounded-full border border-border bg-surface-raised text-secondary"
+          disabled={blocked || buyPending}
+          onClick={onBuy}
+          className="inline-flex size-15 items-center justify-center rounded-full border border-border bg-surface-raised text-secondary disabled:opacity-40"
         >
           <ShoppingBag className="size-5" aria-hidden="true" />
         </button>
