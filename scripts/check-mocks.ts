@@ -6,6 +6,9 @@ import { resetAccounts } from '../src/mocks/account-store'
 import { handlers } from '../src/mocks/handlers'
 import { DEMO_ORDER_ID, resetOrders } from '../src/mocks/order-store'
 import { resetWallets } from '../src/mocks/wallet-store'
+import { collectorPrefill, collectorPrefillKey } from '../src/modules/checkout/prefill'
+import { profileResponseSchema } from '../src/modules/profile/types'
+import { walletsResponseSchema } from '../src/modules/wallets/types'
 
 interface MockNft {
   id: string
@@ -681,6 +684,55 @@ async function main(): Promise<void> {
     accountsReset.data.profile?.displayName === 'Daniel Roberto' &&
       accountsReset.data.profile?.walletNickname === 'Principal',
     'reset das contas restaura o cenário conhecido',
+  )
+
+  console.log('\nPré-preenchimento do checkout:')
+
+  resetAccounts()
+  resetWallets()
+
+  const prefillProfile = profileResponseSchema.parse(
+    (await client.get('/profile', { headers: authHeaders })).data,
+  ).profile
+  const prefillWallets = walletsResponseSchema.parse(
+    (await client.get('/wallets')).data,
+  ).items
+  const payingWallet =
+    prefillWallets.find((wallet) => wallet.connected) ??
+    prefillWallets.find((wallet) => wallet.primary) ??
+    null
+  const prefilled = collectorPrefill(prefillProfile, payingWallet)
+
+  check(
+    prefilled.displayName === 'Daniel Roberto' &&
+      prefilled.username === 'daniel.rbrt' &&
+      prefilled.email === 'test123@gmail.com' &&
+      prefilled.ensName === 'nova.kurio' &&
+      prefilled.ensDomain === '.eth',
+    'dados do usuário preenchem nome de exibição, usuário, e-mail e ENS',
+  )
+  check(
+    prefilled.walletAddress === payingWallet?.address &&
+      prefilled.network === payingWallet?.network &&
+      prefilled.walletType === payingWallet?.type &&
+      prefilled.referralCode === payingWallet?.referralCode &&
+      prefilled.profileName === payingWallet?.profileName &&
+      prefilled.useOtherWallet === false,
+    'dados da carteira cadastrada preenchem endereço, rede, tipo e indicação',
+  )
+  check(
+    collectorPrefillKey(prefillProfile, payingWallet) !==
+      collectorPrefillKey(
+        prefillProfile,
+        prefillWallets.find((wallet) => wallet.primary) ?? null,
+      ),
+    'trocar de carteira registra uma nova origem de pré-preenchimento',
+  )
+  check(
+    collectorPrefill(prefillProfile, null).walletAddress === '' &&
+      collectorPrefill(prefillProfile, null).username === 'daniel.rbrt' &&
+      collectorPrefill(undefined, null).email === '',
+    'sem carteira cadastrada só os dados do usuário entram no formulário',
   )
 
   console.log('\nContrato /api/orders:')

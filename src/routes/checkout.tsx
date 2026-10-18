@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -18,9 +18,11 @@ import { CollectorForm } from '@/modules/checkout/components/collector-form'
 import { ConnectedWallets } from '@/modules/checkout/components/connected-wallets'
 import { OrderSummary } from '@/modules/checkout/components/order-summary'
 import { WalletProviders } from '@/modules/checkout/components/wallet-providers'
+import { collectorPrefill, collectorPrefillKey } from '@/modules/checkout/prefill'
 import { useCollectorForm } from '@/modules/checkout/use-collector-form'
 import { newIdempotencyKey } from '@/modules/orders/api'
 import { useCreateOrder } from '@/modules/orders/mutations'
+import { profileQuery } from '@/modules/profile/queries'
 import { useUpdateWallet } from '@/modules/wallets/mutations'
 import { walletsQuery } from '@/modules/wallets/queries'
 import { cn } from 'cn'
@@ -36,13 +38,15 @@ function CheckoutPage() {
   const cartResult = useQuery(cartQuery())
   const walletsResult = useQuery(walletsQuery())
 
-  const form = useCollectorForm()
   const updateWallet = useUpdateWallet()
   const createOrder = useCreateOrder()
   const navigate = useNavigate()
   // O checkout exige sessão: sem ela o visitante volta ao carrinho com o
   // diálogo de login aberto e retoma o checkout assim que entrar.
   const { isAllowed } = useRequireSession('/cart')
+
+  // Os dados do colecionador já cadastrados alimentam o formulário da tela.
+  const profileResult = useQuery({ ...profileQuery(), enabled: isAllowed })
 
   const [provider, setProvider] = useState<WalletProviderId | null>(
     DEFAULT_WALLET_PROVIDER,
@@ -54,6 +58,26 @@ function CheckoutPage() {
 
   const wallets = walletsResult.data?.items ?? []
   const connectedWallet = wallets.find((wallet) => wallet.connected) ?? null
+  /** Carteira cujos dados preenchem o formulário: a do pagamento, ou a principal. */
+  const checkoutWallet =
+    connectedWallet ??
+    wallets.find((wallet) => wallet.primary) ??
+    wallets[0] ??
+    null
+  const profile = profileResult.data
+
+  const prefill = useMemo(
+    () =>
+      profile || checkoutWallet
+        ? {
+            key: collectorPrefillKey(profile, checkoutWallet),
+            values: collectorPrefill(profile, checkoutWallet),
+          }
+        : null,
+    [profile, checkoutWallet],
+  )
+
+  const form = useCollectorForm(prefill)
 
   const walletError = updateWallet.isError
     ? apiErrorMessage(
@@ -130,7 +154,12 @@ function CheckoutPage() {
     )
   }
 
-  if (!isAllowed || cartResult.isPending || walletsResult.isPending) {
+  if (
+    !isAllowed ||
+    cartResult.isPending ||
+    walletsResult.isPending ||
+    profileResult.isPending
+  ) {
     return (
       <div className="flex flex-col gap-6">
         <CheckoutHeader />

@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
+import type { CollectorPrefill } from './prefill'
 import {
   COLLECTOR_FORM_FIELDS,
   EMPTY_COLLECTOR_FORM,
@@ -15,12 +16,23 @@ export interface CollectorFormValidation {
   firstField?: CollectorFormField
 }
 
-export function useCollectorForm() {
+export function useCollectorForm(prefill?: CollectorPrefill | null) {
   const [values, setValues] = useState<CollectorFormValues>(
-    EMPTY_COLLECTOR_FORM,
+    () => prefill?.values ?? EMPTY_COLLECTOR_FORM,
   )
   const [errors, setErrors] = useState<CollectorFormErrors>({})
   const [validated, setValidated] = useState(false)
+  const appliedKey = useRef<string | null>(prefill?.key ?? null)
+
+  // O perfil e as carteiras chegam depois da primeira renderização. Cada origem
+  // de dados é aplicada uma única vez — assim os dados cadastrados aparecem
+  // preenchidos sem sobrescrever o que o colecionador já ajustou na tela.
+  useEffect(() => {
+    if (!prefill || prefill.key === appliedKey.current) return
+    appliedKey.current = prefill.key
+    // A observação é um recado do colecionador, não um dado cadastrado.
+    setValues((previous) => ({ ...prefill.values, notes: previous.notes }))
+  }, [prefill])
 
   const setField = useCallback(
     <K extends keyof CollectorFormValues>(
