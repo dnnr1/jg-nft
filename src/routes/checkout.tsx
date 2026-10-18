@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { ErrorState } from '@/components/common/error-state'
 import { buttonVariants } from '@/components/ui/button'
 import { apiErrorMessage } from '@/lib/api'
+import { useAuth } from '@/modules/auth/auth-context'
 import { cartQuery } from '@/modules/cart/queries'
 import {
   DEFAULT_WALLET_PROVIDER,
@@ -17,6 +18,7 @@ import { CollectorForm } from '@/modules/checkout/components/collector-form'
 import { ConnectedWallets } from '@/modules/checkout/components/connected-wallets'
 import { OrderSummary } from '@/modules/checkout/components/order-summary'
 import { WalletProviders } from '@/modules/checkout/components/wallet-providers'
+import { requestCheckoutAfterLogin } from '@/modules/checkout/intent'
 import { useCollectorForm } from '@/modules/checkout/use-collector-form'
 import { newIdempotencyKey } from '@/modules/orders/api'
 import { useCreateOrder } from '@/modules/orders/mutations'
@@ -39,6 +41,7 @@ function CheckoutPage() {
   const updateWallet = useUpdateWallet()
   const createOrder = useCreateOrder()
   const navigate = useNavigate()
+  const { user, isReady, openAuthDialog } = useAuth()
 
   const [provider, setProvider] = useState<WalletProviderId | null>(
     DEFAULT_WALLET_PROVIDER,
@@ -47,6 +50,15 @@ function CheckoutPage() {
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null)
   /** Chave estável da tentativa: reenviar após falha recupera o mesmo pedido. */
   const idempotencyKey = useRef<string | null>(null)
+
+  // O checkout exige sessão: sem ela, o visitante volta ao carrinho com o
+  // diálogo de login aberto e retoma o checkout assim que entrar.
+  useEffect(() => {
+    if (!isReady || user) return
+    requestCheckoutAfterLogin()
+    openAuthDialog('login')
+    void navigate({ to: '/cart', replace: true })
+  }, [isReady, user, openAuthDialog, navigate])
 
   const wallets = walletsResult.data?.items ?? []
   const connectedWallet = wallets.find((wallet) => wallet.connected) ?? null
@@ -126,7 +138,7 @@ function CheckoutPage() {
     )
   }
 
-  if (cartResult.isPending || walletsResult.isPending) {
+  if (!isReady || !user || cartResult.isPending || walletsResult.isPending) {
     return (
       <div className="flex flex-col gap-6">
         <CheckoutHeader />

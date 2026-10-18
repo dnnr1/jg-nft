@@ -17,6 +17,8 @@ export type AuthMode = 'login' | 'signup'
 
 interface AuthContextValue {
   user: User | null
+  /** `false` até a sessão ser lida do armazenamento (evita guardas precipitadas). */
+  isReady: boolean
   dialogOpen: boolean
   dialogMode: AuthMode
   openAuthDialog: (mode?: AuthMode) => void
@@ -40,11 +42,13 @@ function readStoredUser(): User | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isReady, setIsReady] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<AuthMode>('login')
 
   useEffect(() => {
     setUser(readStoredUser())
+    setIsReady(true)
   }, [])
 
   const persistSession = useCallback((session: User | null) => {
@@ -94,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      isReady,
       dialogOpen,
       dialogMode,
       openAuthDialog,
@@ -105,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
+      isReady,
       dialogOpen,
       dialogMode,
       openAuthDialog,
